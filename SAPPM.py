@@ -28,8 +28,9 @@ st.set_page_config(
 )
 
 ##############################
-# Global Translation Dictionaries
+# Global Translation Dictionaries (Always use the selected language)
 ##############################
+# (The language selection is done via the selectbox, no toggle for Japanese is provided.)
 languages = {
     'English': 'en',
     '日本語': 'ja'
@@ -60,9 +61,6 @@ translations = {
             "7. Compare the resulting portfolios to see which strategy performs best.\n"
             "8. Save the report as a PDF for future reference."
         ),
-        "dismiss": "Dismiss",  # (Not used per request)
-        "show_japanese": "Show Japanese Translation",
-        "hide_japanese": "Hide Japanese Translation",
         "sap_bw_connections": "SAP BW Connections (Future Feature)",
         "fetch_bw_connections": "Fetch BW Connections",
         "bw_connection_details": "BW Connection Details",
@@ -140,7 +138,7 @@ translations = {
         "feedback_hhi_good": "Good diversification.",
         "success_optimize": "Portfolio optimization completed successfully!",
         "explanation_sharpe_button": "**Optimize for Highest Sharpe Ratio:** Maximizes risk-adjusted return.",
-        "recommendation": "Based on these metrics, the **{better_portfolio}** portfolio is recommended for better **{better_metric}**."
+        "recommendation": "Based on these metrics, the {better_portfolio} portfolio is recommended for better {better_metric}."
     },
     'ja': {
         "title": "高度な機能を備えたポートフォリオ最適化アプリ",
@@ -166,9 +164,6 @@ translations = {
             "7. 異なる戦略の結果を比較して最良の戦略を判断します。\n"
             "8. 最終結果をPDFレポートとして保存します。"
         ),
-        "dismiss": "閉じる",  # Not used per request
-        "show_japanese": "日本語を表示",
-        "hide_japanese": "日本語を非表示",
         "sap_bw_connections": "SAP BW接続（将来実装予定）",
         "fetch_bw_connections": "BW接続を取得",
         "bw_connection_details": "BW接続詳細",
@@ -246,7 +241,7 @@ translations = {
         "feedback_hhi_good": "良好な分散投資ができています。",
         "success_optimize": "ポートフォリオの最適化が正常に完了しました！",
         "explanation_sharpe_button": "**シャープレシオ最大化のために最適化：** リスク調整後の最高のリターンを目指します。",
-        "recommendation": "上記の指標に基づき、**{better_portfolio}**ポートフォリオはより良い**{better_metric}**を提供する可能性があります。"
+        "recommendation": "Based on these metrics, the {better_portfolio} portfolio is recommended for better {better_metric}."
     }
 }
 
@@ -537,14 +532,13 @@ class PortfolioOptimizer:
         r2 = r2_score(y_test_inverse, predictions)
         return mae, rmse, r2
 
-    def compute_efficient_frontier(self, num_portfolios=1000):
+    def compute_efficient_frontier(self, num_portfolios=200):  # Reduced to 200 for speed
         results = np.zeros((4, num_portfolios))
         weights_record = []
         for i in range(num_portfolios):
             weights = np.random.dirichlet(np.ones(len(self.tickers)), size=1)[0]
             weights_record.append(weights)
             port_return, port_vol, sharpe = self.portfolio_stats(weights)
-            # Using SAP API for VaR if available; otherwise local calc
             var = self.value_at_risk(weights, confidence_level=0.95)
             cvar = self.conditional_value_at_risk(weights, confidence_level=0.95)
             results[0, i] = port_vol
@@ -600,7 +594,7 @@ def analyze_sharpe(sharpe):
     elif 0.5 < sharpe <= 1:
         return "Average. Returns are acceptable."
     else:
-        return "Poor. Consider diversifying or adjusting strategy."
+        return "Poor. Consider adjusting your strategy."
 
 def display_metrics_table(metrics, lang):
     metric_display = []
@@ -614,6 +608,7 @@ def display_metrics_table(metrics, lang):
             display_value = f"{value:.2f}"
         else:
             display_value = f"{value:.2%}"
+        # For recommendation, if both base and optimized are 0, skip the metric.
         analysis_text = {
             "var": analyze_var,
             "cvar": analyze_cvar,
@@ -635,32 +630,23 @@ def display_metrics_table(metrics, lang):
 
 def compare_portfolios(base_metrics, optimized_metrics, lang):
     comparison_data = []
-    better_portfolio = ""
-    better_metric = ""
+    recommendations = []
     for key in base_metrics.keys():
         base_value = base_metrics[key]
         optimized_value = optimized_metrics[key]
         metric_display = get_translated_text(lang, key)
-        if key in ["sharpe_ratio", "sortino_ratio", "calmar_ratio", "alpha"]:
-            if optimized_value > base_value:
-                better = "Optimized"
-                better_portfolio = "Optimized"
-                better_metric = metric_display
-            else:
-                better = "Base"
-                better_portfolio = "Base"
-                better_metric = metric_display
-        elif key in ["var", "cvar", "max_drawdown", "beta", "hhi"]:
-            if optimized_value < base_value:
-                better = "Optimized"
-                better_portfolio = "Optimized"
-                better_metric = metric_display
-            else:
-                better = "Base"
-                better_portfolio = "Base"
-                better_metric = metric_display
-        else:
+        # If both are zero, skip this metric for recommendation
+        if base_value == 0 and optimized_value == 0:
             better = "-"
+        else:
+            if key in ["sharpe_ratio", "sortino_ratio", "calmar_ratio", "alpha"]:
+                better = "Optimized" if optimized_value > base_value else "Base"
+            elif key in ["var", "cvar", "max_drawdown", "beta", "hhi"]:
+                better = "Optimized" if optimized_value < base_value else "Base"
+            else:
+                better = "-"
+        if better != "-":
+            recommendations.append((metric_display, better))
         def format_val(k, v):
             if k in ["sharpe_ratio", "sortino_ratio", "calmar_ratio", "alpha"]:
                 return f"{v:.2f}"
@@ -685,11 +671,12 @@ def compare_portfolios(base_metrics, optimized_metrics, lang):
     comparison_df = comparison_df.style.apply(highlight_better, axis=1)
     st.markdown("<h3>📊 Comparison: Sharpe vs Base Portfolio</h3>", unsafe_allow_html=True)
     st.table(comparison_df)
-    if better_metric:
-        recommendation_text = get_translated_text(lang, "recommendation").format(
-            better_portfolio=better_portfolio, better_metric=better_metric
-        )
-        st.markdown(f"<p><strong>Recommendation:</strong> {recommendation_text}</p>", unsafe_allow_html=True)
+    if recommendations:
+        # Choose the first metric that has a clear recommendation
+        metric, rec = recommendations[0]
+        st.markdown(f"<p><strong>Recommendation:</strong> Based on the {metric} metric, the {rec} portfolio is recommended.</p>", unsafe_allow_html=True)
+    else:
+        st.markdown("<p><strong>Recommendation:</strong> No clear recommendation; metrics are neutral.</p>", unsafe_allow_html=True)
 
 ##############################
 # Introduction / Notice Section
@@ -708,19 +695,23 @@ def show_instructions(lang):
 # Main Streamlit App
 ##############################
 def main():
-    # Sidebar language selection and toggle
+    # Sidebar language selection
     st.sidebar.header("🌐 Language Selection")
     selected_language = st.sidebar.selectbox("Select Language:", options=list(languages.keys()), index=0)
     lang = languages[selected_language]
     
-    # Toggle to show/hide Japanese translation for introduction/instructions
-    show_jp = st.sidebar.checkbox(get_translated_text(lang, "show_japanese"), value=False)
+    # If any action button is pressed, hide introduction/instructions.
+    action_pressed = any([st.sidebar.button(get_translated_text(lang, "train_lstm")),
+                          st.sidebar.button(get_translated_text(lang, "optimize_portfolio")),
+                          st.sidebar.button(get_translated_text(lang, "optimize_sharpe")),
+                          st.sidebar.button(get_translated_text(lang, "compare_portfolios"))])
+    if action_pressed:
+        st.session_state["show_intro"] = False
+
+    if st.session_state["show_intro"]:
+        show_introduction(lang)
+        show_instructions(lang)
     
-    # Show the introduction (without dismiss button as requested)
-    show_introduction(lang)
-    show_instructions(lang)
-    
-    # Main Title
     st.title(get_translated_text(lang, "title"))
     
     # SAP BW/BEx Section in Sidebar
@@ -733,9 +724,16 @@ def main():
             st.sidebar.write("BW Connections could not be fetched.")
         st.sidebar.caption("This feature will be implemented in a future version.")
     
-    # Button to Restart Selection (clears the portfolio)
-    if st.sidebar.button(get_translated_text(lang, "restart_selection")):
+    # Display current portfolio and Restart Selection button (placed under portfolio list)
+    st.sidebar.subheader(get_translated_text(lang, "my_portfolio"))
+    if 'my_portfolio' not in st.session_state:
         st.session_state['my_portfolio'] = []
+    if st.session_state['my_portfolio']:
+        st.sidebar.write(", ".join(st.session_state['my_portfolio']))
+        if st.sidebar.button(get_translated_text(lang, "restart_selection")):
+            st.session_state['my_portfolio'] = []
+    else:
+        st.sidebar.write(get_translated_text(lang, "no_assets"))
     
     # Sidebar for User Inputs
     st.sidebar.header(get_translated_text(lang, "user_inputs"))
@@ -751,14 +749,6 @@ def main():
     else:
         selected_universe_assets = st.sidebar.multiselect(get_translated_text(lang, "add_portfolio"), universe_options[universe_choice], default=[])
     
-    # Initialize Session State for Portfolio
-    if 'my_portfolio' not in st.session_state:
-        st.session_state['my_portfolio'] = []
-    if 'base_portfolio_metrics' not in st.session_state:
-        st.session_state['base_portfolio_metrics'] = None
-    if 'optimized_portfolio_metrics' not in st.session_state:
-        st.session_state['optimized_portfolio_metrics'] = None
-    
     # Add assets to portfolio
     if universe_choice != 'Custom':
         if selected_universe_assets:
@@ -772,13 +762,6 @@ def main():
                 new_tickers = [ticker.strip().upper() for ticker in custom_tickers.split(",") if ticker.strip()]
                 st.session_state['my_portfolio'] = list(set(st.session_state['my_portfolio'] + new_tickers))
                 st.sidebar.success(get_translated_text(lang, "add_portfolio") + " " + get_translated_text(lang, "my_portfolio"))
-    
-    # Display current portfolio
-    st.sidebar.subheader(get_translated_text(lang, "my_portfolio"))
-    if st.session_state['my_portfolio']:
-        st.sidebar.write(", ".join(st.session_state['my_portfolio']))
-    else:
-        st.sidebar.write(get_translated_text(lang, "no_assets"))
     
     # Optimization Parameters
     st.sidebar.header(get_translated_text(lang, "optimization_parameters"))
@@ -794,7 +777,7 @@ def main():
         specific_target_return = st.sidebar.slider(get_translated_text(lang, "target_return"), min_value=-5.0, max_value=20.0, value=5.0, step=0.1) / 100
         allocation_title = get_translated_text(lang, "allocation_title").format(target=round(specific_target_return * 100, 2))
     else:
-        specific_target_return = None  # When profit-focused, target return is not used.
+        specific_target_return = None  # Profit-focused: do not use target return
         allocation_title = get_translated_text(lang, "allocation_title_no_target")
     
     # Action Buttons
@@ -821,11 +804,7 @@ def main():
                 mae, rmse, r2 = optimizer.evaluate_model(model, scaler, X_test, y_test)
                 st.success(get_translated_text(lang, "success_lstm"))
                 st.subheader("LSTM Model Evaluation Metrics")
-                eval_metrics = {
-                    "Mean Absolute Error (MAE)": mae,
-                    "Root Mean Squared Error (RMSE)": rmse,
-                    "R-squared (R²)": r2
-                }
+                eval_metrics = {"Mean Absolute Error (MAE)": mae, "Root Mean Squared Error (RMSE)": rmse, "R-squared (R²)": r2}
                 st.table(pd.DataFrame.from_dict(eval_metrics, orient='index', columns=['Value']).style.format({"Value": "{:.4f}"}))
                 future_returns = optimizer.predict_future_returns(model, scaler, steps=30)
                 future_dates = pd.date_range(end_date, periods=len(future_returns), freq='B').to_pydatetime().tolist()
@@ -839,6 +818,7 @@ def main():
                 plt.xticks(rotation=45)
                 plt.tight_layout()
                 st.pyplot(fig_lstm)
+                st.session_state["fig_lstm"] = fig_lstm
             except Exception as e:
                 st.error(str(e))
     
@@ -890,48 +870,48 @@ def main():
                 st.subheader(get_translated_text(lang, "visual_analysis"))
                 col1, col2 = st.columns(2)
                 with col1:
-                    fig1, ax1 = plt.subplots(figsize=(5, 4))
-                    ax1.pie(allocation['Weight (%)'], labels=allocation['Asset'], autopct='%1.1f%%', startangle=90, textprops={'fontsize': 10})
-                    ax1.axis('equal')
-                    ax1.set_title(get_translated_text(lang, "portfolio_composition"))
-                    st.pyplot(fig1)
+                    fig_pie, ax_pie = plt.subplots(figsize=(5, 4))
+                    ax_pie.pie(allocation['Weight (%)'], labels=allocation['Asset'], autopct='%1.1f%%', startangle=90, textprops={'fontsize': 10})
+                    ax_pie.axis('equal')
+                    ax_pie.set_title(get_translated_text(lang, "portfolio_composition"))
+                    st.pyplot(fig_pie)
+                    st.session_state["fig_pie"] = fig_pie
                 with col2:
-                    fig2, ax2 = plt.subplots(figsize=(5, 4))
+                    fig_bar, ax_bar = plt.subplots(figsize=(5, 4))
                     perf_metrics = {"Expected\n Annual Return (%)": port_return * 100, "Annual Volatility\n(Risk) (%)": port_vol * 100, "Sharpe Ratio": sharpe_ratio}
                     metrics_bar = pd.DataFrame.from_dict(perf_metrics, orient='index', columns=['Value'])
-                    sns.barplot(x=metrics_bar.index, y='Value', data=metrics_bar, palette='viridis', ax=ax2)
-                    ax2.set_title(get_translated_text(lang, "portfolio_metrics"))
-                    for p in ax2.patches:
-                        ax2.annotate(f"{p.get_height():.2f}", (p.get_x() + p.get_width()/2., p.get_height()),
-                                     ha='center', va='bottom', fontsize=10)
+                    sns.barplot(x=metrics_bar.index, y='Value', data=metrics_bar, palette='viridis', ax=ax_bar)
+                    ax_bar.set_title(get_translated_text(lang, "portfolio_metrics"))
+                    for p in ax_bar.patches:
+                        ax_bar.annotate(f"{p.get_height():.2f}", (p.get_x() + p.get_width()/2., p.get_height()),
+                                        ha='center', va='bottom', fontsize=10)
                     plt.xticks(rotation=0, ha='center')
                     plt.tight_layout()
-                    st.pyplot(fig2)
+                    st.pyplot(fig_bar)
                 st.subheader(get_translated_text(lang, "correlation_heatmap"))
                 corr_matrix = optimizer.returns.corr()
-                fig3, ax3 = plt.subplots(figsize=(8, 6))
-                sns.heatmap(corr_matrix, annot=True, cmap='Spectral', linewidths=0.3, ax=ax3,
-                            cbar_kws={'shrink': 0.8}, annot_kws={'fontsize': 8})
-                ax3.set_title(get_translated_text(lang, "correlation_heatmap"))
+                fig_corr, ax_corr = plt.subplots(figsize=(8, 6))
+                sns.heatmap(corr_matrix, annot=True, cmap='Spectral', linewidths=0.3, ax=ax_corr, cbar_kws={'shrink': 0.8}, annot_kws={'fontsize': 8})
+                ax_corr.set_title(get_translated_text(lang, "correlation_heatmap"))
                 plt.tight_layout()
-                st.pyplot(fig3)
+                st.pyplot(fig_corr)
                 st.subheader("📈 Efficient Frontier : Graph loading, please wait ...")
-                results, weights_record = optimizer.compute_efficient_frontier(num_portfolios=1000)
+                results, weights_record = optimizer.compute_efficient_frontier(num_portfolios=200)
                 vol_arr, ret_arr, sharpe_arr, _ = results
                 max_sharpe_idx = np.argmax(sharpe_arr)
                 max_sharpe_vol = vol_arr[max_sharpe_idx]
                 max_sharpe_ret = ret_arr[max_sharpe_idx]
-                fig4, ax4 = plt.subplots(figsize=(10, 6))
-                scatter = ax4.scatter(vol_arr, ret_arr, c=sharpe_arr, cmap='viridis', marker='o', s=10, alpha=0.3)
-                ax4.scatter(max_sharpe_vol, max_sharpe_ret, c='red', marker='*', s=200, label='Max Sharpe Ratio')
+                fig_ef, ax_ef = plt.subplots(figsize=(10, 6))
+                scatter = ax_ef.scatter(vol_arr, ret_arr, c=sharpe_arr, cmap='viridis', marker='o', s=10, alpha=0.3)
+                ax_ef.scatter(max_sharpe_vol, max_sharpe_ret, c='red', marker='*', s=200, label='Max Sharpe Ratio')
                 plt.colorbar(scatter, label='Sharpe Ratio')
-                ax4.set_xlabel("Annual Volatility (Risk)")
-                ax4.set_ylabel("Expected Annual Return")
-                ax4.set_title("Efficient Frontier")
-                ax4.legend()
+                ax_ef.set_xlabel("Annual Volatility (Risk)")
+                ax_ef.set_ylabel("Expected Annual Return")
+                ax_ef.set_title("Efficient Frontier")
+                ax_ef.legend()
                 plt.tight_layout()
-                st.pyplot(fig4)
-                st.session_state["fig_efficient"] = fig4  # Save for PDF report
+                st.pyplot(fig_ef)
+                st.session_state["fig_efficient"] = fig_ef
                 st.success(get_translated_text(lang, "success_optimize"))
             except Exception as e:
                 st.error(str(e))
@@ -975,89 +955,66 @@ def main():
                 st.subheader(get_translated_text(lang, "visual_analysis"))
                 col1, col2 = st.columns(2)
                 with col1:
-                    fig1, ax1 = plt.subplots(figsize=(5, 4))
-                    ax1.pie(allocation['Weight (%)'], labels=allocation['Asset'], autopct='%1.1f%%', startangle=90, textprops={'fontsize': 10})
-                    ax1.axis('equal')
-                    ax1.set_title(get_translated_text(lang, "portfolio_composition"))
-                    st.pyplot(fig1)
+                    fig_pie2, ax_pie2 = plt.subplots(figsize=(5, 4))
+                    ax_pie2.pie(allocation['Weight (%)'], labels=allocation['Asset'], autopct='%1.1f%%', startangle=90, textprops={'fontsize': 10})
+                    ax_pie2.axis('equal')
+                    ax_pie2.set_title(get_translated_text(lang, "portfolio_composition"))
+                    st.pyplot(fig_pie2)
                 with col2:
-                    fig2, ax2 = plt.subplots(figsize=(5, 4))
+                    fig_bar2, ax_bar2 = plt.subplots(figsize=(5, 4))
                     perf_metrics = {"Expected\n Annual Return (%)": port_return * 100, "Annual Volatility\n(Risk) (%)": port_vol * 100, "Sharpe Ratio": sharpe_ratio}
-                    metrics_bar = pd.DataFrame.from_dict(perf_metrics, orient='index', columns=['Value'])
-                    sns.barplot(x=metrics_bar.index, y='Value', data=metrics_bar, palette='viridis', ax=ax2)
-                    ax2.set_title(get_translated_text(lang, "portfolio_metrics"))
-                    for p in ax2.patches:
-                        ax2.annotate(f"{p.get_height():.2f}", (p.get_x() + p.get_width()/2., p.get_height()),
-                                     ha='center', va='bottom', fontsize=10)
+                    metrics_bar2 = pd.DataFrame.from_dict(perf_metrics, orient='index', columns=['Value'])
+                    sns.barplot(x=metrics_bar2.index, y='Value', data=metrics_bar2, palette='viridis', ax=ax_bar2)
+                    ax_bar2.set_title(get_translated_text(lang, "portfolio_metrics"))
+                    for p in ax_bar2.patches:
+                        ax_bar2.annotate(f"{p.get_height():.2f}", (p.get_x() + p.get_width()/2., p.get_height()),
+                                         ha='center', va='bottom', fontsize=10)
                     plt.xticks(rotation=0, ha='center')
                     plt.tight_layout()
-                    st.pyplot(fig2)
+                    st.pyplot(fig_bar2)
                 st.subheader(get_translated_text(lang, "correlation_heatmap"))
                 corr_matrix = optimizer.returns.corr()
-                fig3, ax3 = plt.subplots(figsize=(8, 6))
-                sns.heatmap(corr_matrix, annot=True, cmap='Spectral', linewidths=0.3, ax=ax3,
-                            cbar_kws={'shrink': 0.8}, annot_kws={'fontsize': 8})
-                ax3.set_title(get_translated_text(lang, "correlation_heatmap"))
+                fig_corr2, ax_corr2 = plt.subplots(figsize=(8, 6))
+                sns.heatmap(corr_matrix, annot=True, cmap='Spectral', linewidths=0.3, ax=ax_corr2, cbar_kws={'shrink': 0.8}, annot_kws={'fontsize': 8})
+                ax_corr2.set_title(get_translated_text(lang, "correlation_heatmap"))
                 plt.tight_layout()
-                st.pyplot(fig3)
+                st.pyplot(fig_corr2)
                 st.subheader("📈 Efficient Frontier : Graph loading, please wait ...")
-                results, weights_record = optimizer.compute_efficient_frontier(num_portfolios=1000)
+                results, weights_record = optimizer.compute_efficient_frontier(num_portfolios=200)
                 vol_arr, ret_arr, sharpe_arr, _ = results
                 max_sharpe_idx = np.argmax(sharpe_arr)
                 max_sharpe_vol = vol_arr[max_sharpe_idx]
                 max_sharpe_ret = ret_arr[max_sharpe_idx]
-                fig4, ax4 = plt.subplots(figsize=(10, 6))
-                scatter = ax4.scatter(vol_arr, ret_arr, c=sharpe_arr, cmap='viridis', marker='o', s=10, alpha=0.3)
-                ax4.scatter(max_sharpe_vol, max_sharpe_ret, c='red', marker='*', s=200, label='Max Sharpe Ratio')
+                fig_ef, ax_ef = plt.subplots(figsize=(10, 6))
+                scatter = ax_ef.scatter(vol_arr, ret_arr, c=sharpe_arr, cmap='viridis', marker='o', s=10, alpha=0.3)
+                ax_ef.scatter(max_sharpe_vol, max_sharpe_ret, c='red', marker='*', s=200, label='Max Sharpe Ratio')
                 plt.colorbar(scatter, label='Sharpe Ratio')
-                ax4.set_xlabel("Annual Volatility (Risk)")
-                ax4.set_ylabel("Expected Annual Return")
-                ax4.set_title("Efficient Frontier")
-                ax4.legend()
+                ax_ef.set_xlabel("Annual Volatility (Risk)")
+                ax_ef.set_ylabel("Expected Annual Return")
+                ax_ef.set_title("Efficient Frontier")
+                ax_ef.legend()
                 plt.tight_layout()
-                st.pyplot(fig4)
-                st.session_state["fig_efficient"] = fig4
-                st.markdown("**Analysis:** This portfolio offers the highest Sharpe Ratio, indicating the best risk-adjusted return among the sampled portfolios.")
-                st.subheader("🔍 Detailed Metrics for Highest Sharpe Ratio Portfolio")
-                detailed_metrics = {
-                    "Expected Annual Return (%)": max_sharpe_ret * 100,
-                    "Annual Volatility (Risk) (%)": max_sharpe_vol * 100,
-                    "Sharpe Ratio": sharpe_arr[max_sharpe_idx],
-                    "Value at Risk (VaR)": optimizer.value_at_risk(weights_record[max_sharpe_idx], confidence_level=0.95),
-                    "Conditional Value at Risk (CVaR)": optimizer.conditional_value_at_risk(weights_record[max_sharpe_idx], confidence_level=0.95),
-                    "Maximum Drawdown": optimizer.maximum_drawdown(weights_record[max_sharpe_idx]),
-                    "Herfindahl-Hirschman Index (HHI)": optimizer.herfindahl_hirschman_index(weights_record[max_sharpe_idx])
-                }
-                st.table(pd.DataFrame.from_dict(detailed_metrics, orient='index', columns=['Value']).style.format({"Value": lambda x: f"{x:.2f}"}))
-                st.subheader("📊 Detailed Performance Metrics")
-                for key in [
-                    "Expected Annual Return (%)",
-                    "Annual Volatility (Risk) (%)",
-                    "Sharpe Ratio",
-                    "Value at Risk (VaR)",
-                    "Conditional Value at Risk (CVaR)",
-                    "Maximum Drawdown",
-                    "Herfindahl-Hirschman Index (HHI)"
-                ]:
-                    value = detailed_metrics.get(key, None)
-                    if value is not None:
-                        display_value = f"{value:.2f}" if key == "Sharpe Ratio" else (f"{value:.2f}%" if "%" in key else f"{value:.4f}")
-                        st.markdown(f"**{key}:** {display_value}")
-                        if key == "Value at Risk (VaR)":
-                            feedback = analyze_var(value)
-                        elif key == "Conditional Value at Risk (CVaR)":
-                            feedback = analyze_cvar(value)
-                        elif key == "Maximum Drawdown":
-                            feedback = analyze_max_drawdown(value)
-                        elif key == "Herfindahl-Hirschman Index (HHI)":
-                            feedback = analyze_hhi(value)
-                        elif key == "Sharpe Ratio":
-                            feedback = analyze_sharpe(value)
-                        else:
-                            feedback = ""
-                        if feedback:
-                            st.markdown(f"**Analysis:** {feedback}")
-                st.success(get_translated_text(lang, "explanation_sharpe_button"))
+                st.pyplot(fig_ef)
+                st.session_state["fig_efficient"] = fig_ef
+                # For recommendation, if metric (e.g., Alpha) is 0 for both portfolios, skip it.
+                rec_text = ""
+                recommendations = []
+                for key in metrics.keys():
+                    base_val = st.session_state.get('base_portfolio_metrics', {}).get(key, None)
+                    opt_val = st.session_state.get('optimized_portfolio_metrics', {}).get(key, None)
+                    if base_val is not None and opt_val is not None:
+                        if base_val == 0 and opt_val == 0:
+                            continue
+                        if key in ["sharpe_ratio", "sortino_ratio", "calmar_ratio", "alpha"]:
+                            recommendations.append((key, "Optimized" if opt_val > base_val else "Base"))
+                        elif key in ["var", "cvar", "max_drawdown", "beta", "hhi"]:
+                            recommendations.append((key, "Optimized" if opt_val < base_val else "Base"))
+                if recommendations:
+                    metric_rec, rec_port = recommendations[0]
+                    rec_text = f"Based on the {get_translated_text(lang, metric_rec)} metric, the {rec_port} portfolio is recommended."
+                else:
+                    rec_text = "No clear recommendation; metrics are neutral."
+                st.markdown(f"<p><strong>Recommendation:</strong> {rec_text}</p>", unsafe_allow_html=True)
             except Exception as e:
                 st.error(str(e))
     
@@ -1068,10 +1025,12 @@ def main():
             st.error("No optimization metrics available to generate the report.")
         else:
             graph_paths = []
-            if "fig_efficient" in st.session_state:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
-                    st.session_state["fig_efficient"].savefig(tmpfile.name, bbox_inches='tight')
-                    graph_paths.append(tmpfile.name)
+            # Save efficient frontier, LSTM, and portfolio composition graphs if available
+            for key in ["fig_efficient", "fig_lstm", "fig_pie"]:
+                if key in st.session_state:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
+                        st.session_state[key].savefig(tmpfile.name, bbox_inches='tight')
+                        graph_paths.append(tmpfile.name)
             pdf_bytes = generate_pdf_report(opt_metrics, graph_paths, language=lang)
             st.download_button("Download PDF Report", data=pdf_bytes, file_name="Portfolio_Report.pdf", mime="application/pdf")
     
