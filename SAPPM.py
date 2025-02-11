@@ -389,41 +389,65 @@ class PortfolioOptimizer:
 
     # --- SAP TRM Integration using Treasury Position Flows API ---
     def fetch_sap_portfolio_risk_metrics(self, weights):
-        SAP_API_KEY = "o6aLGqMRUwKu8ispGpYnwLuM46PKKwje"  # Provided API key (store securely)
-        sap_api_url = "https://api.sap.com/sap/opu/odata/sap/API_TRSYPOSFLOW_SRV/TreasuryPositionFlows?$format=json"
-        headers = {
-            "APIKey": SAP_API_KEY,
-            "Content-Type": "application/json"
-        }
-        try:
-            response = requests.get(sap_api_url, headers=headers)
-            if response.status_code == 200:
-                data = response.json()
-                # Dummy risk metrics for demonstration
-                return {"VaR": -0.03, "CVaR": -0.04}
-            else:
-                logger.warning("SAP TRM API call failed: " + response.text)
+    """
+    Try to fetch risk metrics from the SAP TRM API.
+    If the response is empty or invalid, return None so that the fallback calculations can be used.
+    """
+    SAP_API_KEY = "o6aLGqMRUwKu8ispGpYnwLuM46PKKwje"  # Provided API key (store securely)
+    sap_api_url = "https://api.sap.com/sap/opu/odata/sap/API_TRSYPOSFLOW_SRV/TreasuryPositionFlows?$format=json"
+    headers = {
+        "APIKey": SAP_API_KEY,
+        "Content-Type": "application/json"
+    }
+    try:
+        response = requests.get(sap_api_url, headers=headers)
+        if response.status_code == 200:
+            # If the response is empty, log a warning and return None.
+            if not response.text.strip():
+                logger.warning("SAP TRM API returned an empty response.")
                 return None
-        except Exception as e:
-            logger.exception("Exception during SAP TRM API call.")
+            try:
+                data = response.json()
+            except Exception as e:
+                logger.warning("Failed to parse JSON from SAP TRM API response. Response text: " + response.text)
+                return None
+            return data  # Expected to contain risk metrics such as "VaR" and "CVaR"
+        else:
+            logger.warning("SAP TRM API call failed with status {}: {}".format(response.status_code, response.text))
             return None
+    except Exception as e:
+        logger.exception("Exception during SAP TRM API call.")
+        return None
 
-    def value_at_risk(self, weights, confidence_level=0.95):
-        if self.use_sap_api:
-            sap_data = self.fetch_sap_portfolio_risk_metrics(weights)
-            if sap_data and "VaR" in sap_data:
-                return sap_data["VaR"]
-        portfolio_returns = self.returns.dot(weights)
-        return np.percentile(portfolio_returns, (1 - confidence_level) * 100)
+def value_at_risk(self, weights, confidence_level=0.95):
+    """
+    Calculate Value at Risk (VaR). First, attempt to retrieve data from the SAP TRM API.
+    If that fails, use the yfinance-based calculation.
+    """
+    if self.use_sap_api:
+        sap_data = self.fetch_sap_portfolio_risk_metrics(weights)
+        if sap_data and "VaR" in sap_data:
+            return sap_data["VaR"]
+        else:
+            logger.info("Falling back to yfinance for VaR calculation.")
+    # Fallback: Calculate VaR using the downloaded returns data.
+    portfolio_returns = self.returns.dot(weights)
+    return np.percentile(portfolio_returns, (1 - confidence_level) * 100)
 
-    def conditional_value_at_risk(self, weights, confidence_level=0.95):
-        if self.use_sap_api:
-            sap_data = self.fetch_sap_portfolio_risk_metrics(weights)
-            if sap_data and "CVaR" in sap_data:
-                return sap_data["CVaR"]
-        portfolio_returns = self.returns.dot(weights)
-        var = self.value_at_risk(weights, confidence_level)
-        return portfolio_returns[portfolio_returns <= var].mean()
+def conditional_value_at_risk(self, weights, confidence_level=0.95):
+    """
+    Calculate Conditional Value at Risk (CVaR). First, try to use the SAP TRM API.
+    If no valid data is available, calculate CVaR using the yfinance data.
+    """
+    if self.use_sap_api:
+        sap_data = self.fetch_sap_portfolio_risk_metrics(weights)
+        if sap_data and "CVaR" in sap_data:
+            return sap_data["CVaR"]
+        else:
+            logger.info("Falling back to yfinance for CVaR calculation.")
+    portfolio_returns = self.returns.dot(weights)
+    var = self.value_at_risk(weights, confidence_level)
+    return portfolio_returns[portfolio_returns <= var].mean()
 
     def maximum_drawdown(self, weights):
         portfolio_returns = self.returns.dot(weights)
