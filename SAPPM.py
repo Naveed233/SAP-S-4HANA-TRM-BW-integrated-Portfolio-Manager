@@ -28,9 +28,8 @@ st.set_page_config(
 )
 
 ##############################
-# Global Translation Dictionaries (Always use the selected language)
+# Global Translation Dictionaries
 ##############################
-# (The language selection is done via the selectbox, no toggle for Japanese is provided.)
 languages = {
     'English': 'en',
     '日本語': 'ja'
@@ -426,8 +425,15 @@ class PortfolioOptimizer:
         try:
             response = requests.get(sap_api_url, headers=headers)
             if response.status_code == 200:
-                data = response.json()
-                # Dummy risk metrics for demonstration purposes
+                if response.text.strip() == "":
+                    logger.warning("SAP TRM API returned an empty response.")
+                    return None
+                try:
+                    data = response.json()
+                except requests.exceptions.JSONDecodeError as e:
+                    logger.warning("Invalid JSON in SAP TRM API response.")
+                    return None
+                # For demonstration purposes, return dummy risk metrics.
                 return {"VaR": -0.03, "CVaR": -0.04}
             else:
                 logger.warning("SAP TRM API call failed: " + response.text)
@@ -532,7 +538,7 @@ class PortfolioOptimizer:
         r2 = r2_score(y_test_inverse, predictions)
         return mae, rmse, r2
 
-    def compute_efficient_frontier(self, num_portfolios=200):  # Reduced to 200 for speed
+    def compute_efficient_frontier(self, num_portfolios=200):
         results = np.zeros((4, num_portfolios))
         weights_record = []
         for i in range(num_portfolios):
@@ -608,7 +614,6 @@ def display_metrics_table(metrics, lang):
             display_value = f"{value:.2f}"
         else:
             display_value = f"{value:.2%}"
-        # For recommendation, if both base and optimized are 0, skip the metric.
         analysis_text = {
             "var": analyze_var,
             "cvar": analyze_cvar,
@@ -635,7 +640,6 @@ def compare_portfolios(base_metrics, optimized_metrics, lang):
         base_value = base_metrics[key]
         optimized_value = optimized_metrics[key]
         metric_display = get_translated_text(lang, key)
-        # If both are zero, skip this metric for recommendation
         if base_value == 0 and optimized_value == 0:
             better = "-"
         else:
@@ -672,11 +676,11 @@ def compare_portfolios(base_metrics, optimized_metrics, lang):
     st.markdown("<h3>📊 Comparison: Sharpe vs Base Portfolio</h3>", unsafe_allow_html=True)
     st.table(comparison_df)
     if recommendations:
-        # Choose the first metric that has a clear recommendation
-        metric, rec = recommendations[0]
-        st.markdown(f"<p><strong>Recommendation:</strong> Based on the {metric} metric, the {rec} portfolio is recommended.</p>", unsafe_allow_html=True)
+        metric_rec, rec_port = recommendations[0]
+        rec_text = f"Based on the {metric_rec} metric, the {rec_port} portfolio is recommended."
     else:
-        st.markdown("<p><strong>Recommendation:</strong> No clear recommendation; metrics are neutral.</p>", unsafe_allow_html=True)
+        rec_text = "No clear recommendation; metrics are neutral."
+    st.markdown(f"<p><strong>Recommendation:</strong> {rec_text}</p>", unsafe_allow_html=True)
 
 ##############################
 # Introduction / Notice Section
@@ -701,10 +705,10 @@ def main():
     lang = languages[selected_language]
     
     # If any action button is pressed, hide introduction/instructions.
-    action_pressed = any([st.sidebar.button(get_translated_text(lang, "train_lstm")),
-                          st.sidebar.button(get_translated_text(lang, "optimize_portfolio")),
-                          st.sidebar.button(get_translated_text(lang, "optimize_sharpe")),
-                          st.sidebar.button(get_translated_text(lang, "compare_portfolios"))])
+    action_pressed = st.sidebar.button(get_translated_text(lang, "train_lstm")) or \
+                     st.sidebar.button(get_translated_text(lang, "optimize_portfolio")) or \
+                     st.sidebar.button(get_translated_text(lang, "optimize_sharpe")) or \
+                     st.sidebar.button(get_translated_text(lang, "compare_portfolios"))
     if action_pressed:
         st.session_state["show_intro"] = False
 
@@ -724,7 +728,7 @@ def main():
             st.sidebar.write("BW Connections could not be fetched.")
         st.sidebar.caption("This feature will be implemented in a future version.")
     
-    # Display current portfolio and Restart Selection button (placed under portfolio list)
+    # Display current portfolio and Restart Selection button
     st.sidebar.subheader(get_translated_text(lang, "my_portfolio"))
     if 'my_portfolio' not in st.session_state:
         st.session_state['my_portfolio'] = []
@@ -777,7 +781,7 @@ def main():
         specific_target_return = st.sidebar.slider(get_translated_text(lang, "target_return"), min_value=-5.0, max_value=20.0, value=5.0, step=0.1) / 100
         allocation_title = get_translated_text(lang, "allocation_title").format(target=round(specific_target_return * 100, 2))
     else:
-        specific_target_return = None  # Profit-focused: do not use target return
+        specific_target_return = None
         allocation_title = get_translated_text(lang, "allocation_title_no_target")
     
     # Action Buttons
@@ -891,7 +895,8 @@ def main():
                 st.subheader(get_translated_text(lang, "correlation_heatmap"))
                 corr_matrix = optimizer.returns.corr()
                 fig_corr, ax_corr = plt.subplots(figsize=(8, 6))
-                sns.heatmap(corr_matrix, annot=True, cmap='Spectral', linewidths=0.3, ax=ax_corr, cbar_kws={'shrink': 0.8}, annot_kws={'fontsize': 8})
+                sns.heatmap(corr_matrix, annot=True, cmap='Spectral', linewidths=0.3, ax=ax_corr,
+                            cbar_kws={'shrink': 0.8}, annot_kws={'fontsize': 8})
                 ax_corr.set_title(get_translated_text(lang, "correlation_heatmap"))
                 plt.tight_layout()
                 st.pyplot(fig_corr)
@@ -913,108 +918,6 @@ def main():
                 st.pyplot(fig_ef)
                 st.session_state["fig_efficient"] = fig_ef
                 st.success(get_translated_text(lang, "success_optimize"))
-            except Exception as e:
-                st.error(str(e))
-    
-    # --- Optimize for Highest Sharpe Ratio Section ---
-    if optimize_sharpe:
-        if not st.session_state['my_portfolio']:
-            st.error(get_translated_text(lang, "error_no_assets_opt"))
-        elif start_date >= end_date:
-            st.error(get_translated_text(lang, "error_date"))
-        else:
-            try:
-                clean_tickers = st.session_state['my_portfolio']
-                optimizer = PortfolioOptimizer(clean_tickers, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'), risk_free_rate)
-                updated_tickers = optimizer.fetch_data()
-                optimal_weights = optimizer.optimize_sharpe_ratio()
-                port_return, port_vol, sharpe_ratio = optimizer.portfolio_stats(optimal_weights)
-                var_95 = optimizer.value_at_risk(optimal_weights, confidence_level=0.95)
-                cvar_95 = optimizer.conditional_value_at_risk(optimal_weights, confidence_level=0.95)
-                max_dd = optimizer.maximum_drawdown(optimal_weights)
-                hhi = optimizer.herfindahl_hirschman_index(optimal_weights)
-                sortino_ratio, calmar_ratio, beta, alpha = optimizer.compute_additional_metrics(optimal_weights)
-                allocation = pd.DataFrame({"Asset": updated_tickers, "Weight (%)": np.round(optimal_weights * 100, 2)})
-                allocation = allocation[allocation['Weight (%)'] > 0].reset_index(drop=True)
-                st.subheader("🔑 Optimal Portfolio Allocation (Highest Sharpe Ratio)")
-                st.dataframe(allocation.style.format({"Weight (%)": "{:.2f}"}))
-                metrics = {
-                    "var": var_95,
-                    "cvar": cvar_95,
-                    "max_drawdown": max_dd,
-                    "hhi": hhi,
-                    "sharpe_ratio": sharpe_ratio,
-                    "sortino_ratio": sortino_ratio,
-                    "calmar_ratio": calmar_ratio,
-                    "beta": beta,
-                    "alpha": alpha
-                }
-                st.session_state['optimized_portfolio_metrics'] = metrics
-                st.subheader(get_translated_text(lang, "performance_metrics"))
-                display_metrics_table(metrics, lang)
-                st.subheader(get_translated_text(lang, "visual_analysis"))
-                col1, col2 = st.columns(2)
-                with col1:
-                    fig_pie2, ax_pie2 = plt.subplots(figsize=(5, 4))
-                    ax_pie2.pie(allocation['Weight (%)'], labels=allocation['Asset'], autopct='%1.1f%%', startangle=90, textprops={'fontsize': 10})
-                    ax_pie2.axis('equal')
-                    ax_pie2.set_title(get_translated_text(lang, "portfolio_composition"))
-                    st.pyplot(fig_pie2)
-                with col2:
-                    fig_bar2, ax_bar2 = plt.subplots(figsize=(5, 4))
-                    perf_metrics = {"Expected\n Annual Return (%)": port_return * 100, "Annual Volatility\n(Risk) (%)": port_vol * 100, "Sharpe Ratio": sharpe_ratio}
-                    metrics_bar2 = pd.DataFrame.from_dict(perf_metrics, orient='index', columns=['Value'])
-                    sns.barplot(x=metrics_bar2.index, y='Value', data=metrics_bar2, palette='viridis', ax=ax_bar2)
-                    ax_bar2.set_title(get_translated_text(lang, "portfolio_metrics"))
-                    for p in ax_bar2.patches:
-                        ax_bar2.annotate(f"{p.get_height():.2f}", (p.get_x() + p.get_width()/2., p.get_height()),
-                                         ha='center', va='bottom', fontsize=10)
-                    plt.xticks(rotation=0, ha='center')
-                    plt.tight_layout()
-                    st.pyplot(fig_bar2)
-                st.subheader(get_translated_text(lang, "correlation_heatmap"))
-                corr_matrix = optimizer.returns.corr()
-                fig_corr2, ax_corr2 = plt.subplots(figsize=(8, 6))
-                sns.heatmap(corr_matrix, annot=True, cmap='Spectral', linewidths=0.3, ax=ax_corr2, cbar_kws={'shrink': 0.8}, annot_kws={'fontsize': 8})
-                ax_corr2.set_title(get_translated_text(lang, "correlation_heatmap"))
-                plt.tight_layout()
-                st.pyplot(fig_corr2)
-                st.subheader("📈 Efficient Frontier : Graph loading, please wait ...")
-                results, weights_record = optimizer.compute_efficient_frontier(num_portfolios=200)
-                vol_arr, ret_arr, sharpe_arr, _ = results
-                max_sharpe_idx = np.argmax(sharpe_arr)
-                max_sharpe_vol = vol_arr[max_sharpe_idx]
-                max_sharpe_ret = ret_arr[max_sharpe_idx]
-                fig_ef, ax_ef = plt.subplots(figsize=(10, 6))
-                scatter = ax_ef.scatter(vol_arr, ret_arr, c=sharpe_arr, cmap='viridis', marker='o', s=10, alpha=0.3)
-                ax_ef.scatter(max_sharpe_vol, max_sharpe_ret, c='red', marker='*', s=200, label='Max Sharpe Ratio')
-                plt.colorbar(scatter, label='Sharpe Ratio')
-                ax_ef.set_xlabel("Annual Volatility (Risk)")
-                ax_ef.set_ylabel("Expected Annual Return")
-                ax_ef.set_title("Efficient Frontier")
-                ax_ef.legend()
-                plt.tight_layout()
-                st.pyplot(fig_ef)
-                st.session_state["fig_efficient"] = fig_ef
-                # For recommendation, if metric (e.g., Alpha) is 0 for both portfolios, skip it.
-                rec_text = ""
-                recommendations = []
-                for key in metrics.keys():
-                    base_val = st.session_state.get('base_portfolio_metrics', {}).get(key, None)
-                    opt_val = st.session_state.get('optimized_portfolio_metrics', {}).get(key, None)
-                    if base_val is not None and opt_val is not None:
-                        if base_val == 0 and opt_val == 0:
-                            continue
-                        if key in ["sharpe_ratio", "sortino_ratio", "calmar_ratio", "alpha"]:
-                            recommendations.append((key, "Optimized" if opt_val > base_val else "Base"))
-                        elif key in ["var", "cvar", "max_drawdown", "beta", "hhi"]:
-                            recommendations.append((key, "Optimized" if opt_val < base_val else "Base"))
-                if recommendations:
-                    metric_rec, rec_port = recommendations[0]
-                    rec_text = f"Based on the {get_translated_text(lang, metric_rec)} metric, the {rec_port} portfolio is recommended."
-                else:
-                    rec_text = "No clear recommendation; metrics are neutral."
-                st.markdown(f"<p><strong>Recommendation:</strong> {rec_text}</p>", unsafe_allow_html=True)
             except Exception as e:
                 st.error(str(e))
     
