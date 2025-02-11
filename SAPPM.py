@@ -413,8 +413,8 @@ class PortfolioOptimizer:
             beta = 0
             alpha = 0
         return sortino_ratio, calmar_ratio, beta, alpha
-
-    # --- SAP TRM Integration using Treasury Position Flows API ---
+        
+# --- SAP TRM Integration using Treasury Position Flows API ---
     def fetch_sap_portfolio_risk_metrics(self, weights):
         SAP_API_KEY = "o6aLGqMRUwKu8ispGpYnwLuM46PKKwje"  # Provided API key (store securely)
         sap_api_url = "https://api.sap.com/sap/opu/odata/sap/API_TRSYPOSFLOW_SRV/TreasuryPositionFlows?$format=json"
@@ -425,15 +425,8 @@ class PortfolioOptimizer:
         try:
             response = requests.get(sap_api_url, headers=headers)
             if response.status_code == 200:
-                if response.text.strip() == "":
-                    logger.warning("SAP TRM API returned an empty response.")
-                    return None
-                try:
-                    data = response.json()
-                except requests.exceptions.JSONDecodeError as e:
-                    logger.warning("Invalid JSON in SAP TRM API response.")
-                    return None
-                # For demonstration purposes, return dummy risk metrics.
+                data = response.json()
+                # Dummy risk metrics for demonstration purposes
                 return {"VaR": -0.03, "CVaR": -0.04}
             else:
                 logger.warning("SAP TRM API call failed: " + response.text)
@@ -441,7 +434,7 @@ class PortfolioOptimizer:
         except Exception as e:
             logger.exception("Exception during SAP TRM API call.")
             return None
-
+            
     def value_at_risk(self, weights, confidence_level=0.95):
         if self.use_sap_api:
             sap_data = self.fetch_sap_portfolio_risk_metrics(weights)
