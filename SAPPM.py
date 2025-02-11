@@ -1,4 +1,5 @@
-# @title with SAP (test mode)import streamlit as st
+# @title with SAP (test mode)
+import streamlit as st
 import yfinance as yf
 import numpy as np
 import pandas as pd
@@ -46,14 +47,11 @@ translations = {
             "You can dismiss this notice when you are ready."
         ),
         "dismiss": "Dismiss",
-        "show_japanese": "Show Japanese Translation",
-        "hide_japanese": "Hide Japanese Translation",
         "sap_bw_connections": "SAP BW Connections",
         "fetch_bw_connections": "Fetch BW Connections",
         "bw_connection_details": "BW Connection Details",
         "bex_query_outline": "BEx Query Outline",
         "save_pdf": "Save PDF Report",
-        # (Other translation keys remain as before.)
         "user_inputs": "🔧 User Inputs",
         "select_universe": "Select an Asset Universe:",
         "custom_tickers": "Enter stock tickers separated by commas (e.g., AAPL, MSFT, TSLA):",
@@ -98,13 +96,13 @@ translations = {
         "explanation_max_drawdown": "**Maximum Drawdown:** Measures the largest peak-to-trough decline in the portfolio value, indicating the worst-case scenario.",
         "explanation_hhi": "**Herfindahl-Hirschman Index (HHI):** A diversification metric that measures the concentration of investments in a portfolio.",
         "explanation_sharpe_ratio": "**Sharpe Ratio:** Measures risk-adjusted returns, indicating how much excess return you receive for the extra volatility endured.",
-        "explanation_sortino_ratio": "**Sortino Ratio:** Similar to the Sharpe Ratio but only considers downside volatility, providing a more targeted risk-adjusted return measure.",
-        "explanation_calmar_ratio": "**Calmar Ratio:** Compares the portfolio's annualized return to its maximum drawdown, indicating return per unit of risk.",
-        "explanation_beta": "**Beta:** Measures the portfolio's volatility relative to a benchmark index (e.g., S&P 500).",
+        "explanation_sortino_ratio": "**Sortino Ratio:** Similar to the Sharpe Ratio but only considers downside volatility.",
+        "explanation_calmar_ratio": "**Calmar Ratio:** Compares the portfolio's annualized return to its maximum drawdown.",
+        "explanation_beta": "**Beta:** Measures the portfolio's volatility relative to a benchmark index.",
         "explanation_alpha": "**Alpha:** Represents the portfolio's excess return relative to the expected return based on its beta.",
         "explanation_lstm": "**Explanation of LSTM Model:**\nLSTM is a type of neural network effective for predicting time series data such as stock returns.",
-        "feedback_sharpe_good": "Great! A Sharpe Ratio above 1 indicates that your portfolio is generating good returns for the level of risk taken.",
-        "feedback_sharpe_average": "Average. A Sharpe Ratio between 0.5 and 1 suggests that your portfolio returns are acceptable.",
+        "feedback_sharpe_good": "Great! A Sharpe Ratio above 1 indicates that your portfolio is generating good returns.",
+        "feedback_sharpe_average": "Average. A Sharpe Ratio between 0.5 and 1 suggests acceptable returns.",
         "feedback_sharpe_poor": "Poor. A Sharpe Ratio below 0.5 suggests you may need to adjust your portfolio.",
         "feedback_sortino_good": "Excellent Sortino Ratio!",
         "feedback_sortino_average": "Average Sortino Ratio.",
@@ -122,7 +120,7 @@ translations = {
         "feedback_hhi_moderate": "Moderate Concentration: Some diversification present.",
         "feedback_hhi_good": "Good Diversification: Well diversified.",
         "success_optimize": "Portfolio optimization completed successfully!",
-        "explanation_sharpe_button": "**Optimize for Highest Sharpe Ratio:**\nMaximize your portfolio's risk-adjusted returns.",
+        "explanation_sharpe_button": "**Optimize for Highest Sharpe Ratio:** Maximize your portfolio's risk-adjusted returns.",
         "recommendation": "Based on the above metrics, the **{better_portfolio}** portfolio is recommended for better **{better_metric}**."
     },
     'ja': {
@@ -132,12 +130,10 @@ translations = {
             "このプロジェクトは、SAPテクノロジーと連携した高度なポートフォリオ最適化システムです。"
             "SAPのトレジャリー・ポジションフローAPI（API_TRSYPOSFLOW_SRV）を用いてリスクデータを取得し、"
             "SAP BW/BExのREST API（/bwconnections）を使って接続情報やBExクエリの概要を取得します。"
-            "さらに、LSTMを用いた将来予測と効率的フロンティア計算を行い、最終的な結果をPDFレポートとして生成・保存します。"
+            "さらに、LSTMを用いた将来予測と効率的フロンティア計算を行い、結果をPDFレポートとして生成・保存します。"
             "今後は、リアルタイムデータ連携やリスクモデルの高度化を予定しています。"
         ),
         "dismiss": "閉じる",
-        "show_japanese": "日本語を表示",
-        "hide_japanese": "日本語を非表示",
         "sap_bw_connections": "SAP BW接続一覧",
         "fetch_bw_connections": "BW接続を取得",
         "bw_connection_details": "BW接続詳細",
@@ -187,10 +183,10 @@ translations = {
         "explanation_max_drawdown": "**最大ドローダウン:** ポートフォリオの価値がピークから谷に下落する最大幅を測定し、最悪のシナリオを示します。",
         "explanation_hhi": "**ハーフィンダール・ハーシュマン指数 (HHI):** ポートフォリオ内の投資集中度を測定する多様化指標です。",
         "explanation_sharpe_ratio": "**シャープレシオ:** リスク調整後のリターンを測定し、追加のボラティリティに対してどれだけの超過リターンを受け取っているかを示します。",
-        "explanation_sortino_ratio": "**ソルティーノレシオ:** シャープレシオと似ていますが、下方のボラティリティのみを考慮し、よりターゲットを絞ったリスク調整後のリターンを提供します。",
-        "explanation_calmar_ratio": "**カルマーレシオ:** ポートフォリオの年率リターンを最大ドローダウンと比較し、リスク単位あたりのリターンを示します。",
-        "explanation_beta": "**ベータ:** ポートフォリオのベンチマーク指数（例：S&P 500）に対するボラティリティを測定します。",
-        "explanation_alpha": "**アルファ:** ポートフォリオのベータに基づく期待リターンに対する超過リターンを表し、プラスの場合はアウトパフォームを示します。",
+        "explanation_sortino_ratio": "**ソルティーノレシオ:** シャープレシオと似ていますが、下方のボラティリティのみを考慮します。",
+        "explanation_calmar_ratio": "**カルマーレシオ:** ポートフォリオの年率リターンを最大ドローダウンと比較します。",
+        "explanation_beta": "**ベータ:** ポートフォリオのベンチマーク（例：S&P 500）に対するボラティリティを測定します。",
+        "explanation_alpha": "**アルファ:** ポートフォリオの期待リターンを上回る超過リターンを示します。",
         "explanation_lstm": "**LSTMモデルの説明：**\nLSTMは時系列データ（株式リターンなど）の予測に有効なニューラルネットワークです。",
         "feedback_sharpe_good": "素晴らしいです！シャープレシオが1以上なら、リスクに対して良好なリターンが得られています。",
         "feedback_sharpe_average": "平均的です。シャープレシオが0.5〜1なら、リスクに対して許容範囲のリターンです。",
@@ -209,7 +205,7 @@ translations = {
         "feedback_alpha_negative": "マイナスのアルファ：ベンチマークを下回っています。",
         "feedback_hhi_high": "高い集中度：多様化が不足しています。",
         "feedback_hhi_moderate": "中程度の集中度：ある程度の多様化があります。",
-        "feedback_hhi_good": "良好な多様化：十分に多様化されています。",
+        "feedback_hhi_good": "良好な多様化ができています。",
         "success_optimize": "ポートフォリオの最適化が正常に完了しました！",
         "explanation_sharpe_button": "**シャープレシオ最大化のために最適化：**\nリスク調整後の最高のリターンを目指します。",
         "recommendation": "上記の指標に基づき、**{better_portfolio}**ポートフォリオはより良い**{better_metric}**を提供する可能性があります。"
@@ -222,14 +218,10 @@ translations = {
 BW_BASE_URL = "http://<server_name>:6405/biprws/raylight/v1"  # Replace <server_name> with your actual server
 
 def fetch_bw_connections(offset=0, limit=10):
-    """
-    Get the list of available SAP BW connections.
-    """
     url = f"{BW_BASE_URL}/bwconnections?offset={offset}&limit={limit}"
     try:
         response = requests.get(url)
         if response.status_code == 200:
-            # Return JSON response (or parse XML if needed)
             return response.json()
         else:
             logger.warning("BW Connections fetch failed: " + response.text)
@@ -239,9 +231,6 @@ def fetch_bw_connections(offset=0, limit=10):
         return None
 
 def fetch_bw_connection_details(bwConnectionID):
-    """
-    Get the details of a specific SAP BW connection.
-    """
     url = f"{BW_BASE_URL}/bwconnections/{bwConnectionID}"
     try:
         response = requests.get(url)
@@ -255,9 +244,6 @@ def fetch_bw_connection_details(bwConnectionID):
         return None
 
 def fetch_bex_query_outline(bwConnectionID):
-    """
-    Get the outline of a BEx Query for the given BW connection.
-    """
     url = f"{BW_BASE_URL}/bwconnections/{bwConnectionID}/outline"
     try:
         response = requests.put(url)  # PUT as per documentation
@@ -271,9 +257,6 @@ def fetch_bex_query_outline(bwConnectionID):
         return None
 
 def fetch_bex_query_capabilities(bwConnectionID):
-    """
-    Get the capabilities of a BEx Query for the given BW connection.
-    """
     url = f"{BW_BASE_URL}/bwconnections/{bwConnectionID}/capabilities"
     try:
         response = requests.put(url)  # PUT as per documentation
@@ -291,36 +274,26 @@ def fetch_bex_query_capabilities(bwConnectionID):
 ##############################
 class PDF(FPDF):
     def header(self):
-        # Add a header with title
         self.set_font("Arial", "B", 16)
         self.cell(0, 10, "Portfolio Optimization Report", ln=True, align="C")
         self.ln(10)
-
     def footer(self):
-        # Add a footer with page number
         self.set_y(-15)
         self.set_font("Arial", "I", 8)
         self.cell(0, 10, f"Page {self.page_no()}", 0, 0, "C")
 
 def generate_pdf_report(opt_metrics, bw_data, language="en"):
-    """
-    Generate a PDF report that includes portfolio optimization metrics and SAP BW report data.
-    """
     pdf = PDF()
     pdf.add_page()
     pdf.set_font("Arial", "", 12)
-    # Title
     pdf.cell(0, 10, "Portfolio Optimization Report", ln=True, align="C")
     pdf.ln(5)
-    # Optimization Metrics
     pdf.cell(0, 10, "Optimization Metrics:", ln=True)
     for key, value in opt_metrics.items():
         pdf.cell(0, 10, f"{key}: {value}", ln=True)
     pdf.ln(5)
-    # BW Data (simulate some report details)
     pdf.cell(0, 10, "SAP BW Report Data:", ln=True)
     if bw_data:
-        # For example, list the first connection
         connections = bw_data.get("bwconnections", [])
         if connections:
             first_conn = connections[0]
@@ -331,7 +304,7 @@ def generate_pdf_report(opt_metrics, bw_data, language="en"):
         pdf.cell(0, 10, "BW data not available.", ln=True)
     pdf.ln(10)
     pdf.cell(0, 10, "End of Report", ln=True, align="C")
-    return pdf.output(dest="S").encode("latin1")  # Return PDF as bytes
+    return pdf.output(dest="S").encode("latin1")
 
 ##############################
 # Portfolio Optimizer Class (Including SAP TRM Integration)
@@ -343,7 +316,6 @@ class PortfolioOptimizer:
         self.end_date = end_date
         self.risk_free_rate = risk_free_rate
         self.returns = None
-        # Use SAP API integration if enabled
         self.use_sap_api = True
 
     def fetch_data(self):
@@ -387,67 +359,56 @@ class PortfolioOptimizer:
         sharpe_ratio = (portfolio_return - self.risk_free_rate) / portfolio_volatility
         return portfolio_return, portfolio_volatility, sharpe_ratio
 
-    # --- SAP TRM Integration using Treasury Position Flows API ---
     def fetch_sap_portfolio_risk_metrics(self, weights):
-    """
-    Try to fetch risk metrics from the SAP TRM API.
-    If the response is empty or invalid, return None so that the fallback calculations can be used.
-    """
-    SAP_API_KEY = "o6aLGqMRUwKu8ispGpYnwLuM46PKKwje"  # Provided API key (store securely)
-    sap_api_url = "https://api.sap.com/sap/opu/odata/sap/API_TRSYPOSFLOW_SRV/TreasuryPositionFlows?$format=json"
-    headers = {
-        "APIKey": SAP_API_KEY,
-        "Content-Type": "application/json"
-    }
-    try:
-        response = requests.get(sap_api_url, headers=headers)
-        if response.status_code == 200:
-            # If the response is empty, log a warning and return None.
-            if not response.text.strip():
-                logger.warning("SAP TRM API returned an empty response.")
+        """
+        Try to fetch risk metrics from the SAP TRM API.
+        If the response is empty or invalid, return None so that the fallback calculations can be used.
+        """
+        SAP_API_KEY = "o6aLGqMRUwKu8ispGpYnwLuM46PKKwje"  # Provided API key (store securely)
+        sap_api_url = "https://api.sap.com/sap/opu/odata/sap/API_TRSYPOSFLOW_SRV/TreasuryPositionFlows?$format=json"
+        headers = {
+            "APIKey": SAP_API_KEY,
+            "Content-Type": "application/json"
+        }
+        try:
+            response = requests.get(sap_api_url, headers=headers)
+            if response.status_code == 200:
+                if not response.text.strip():
+                    logger.warning("SAP TRM API returned an empty response.")
+                    return None
+                try:
+                    data = response.json()
+                except Exception as e:
+                    logger.warning("Failed to parse JSON from SAP TRM API response. Response text: " + response.text)
+                    return None
+                return data  # Expected to contain risk metrics such as "VaR" and "CVaR"
+            else:
+                logger.warning("SAP TRM API call failed with status {}: {}".format(response.status_code, response.text))
                 return None
-            try:
-                data = response.json()
-            except Exception as e:
-                logger.warning("Failed to parse JSON from SAP TRM API response. Response text: " + response.text)
-                return None
-            return data  # Expected to contain risk metrics such as "VaR" and "CVaR"
-        else:
-            logger.warning("SAP TRM API call failed with status {}: {}".format(response.status_code, response.text))
+        except Exception as e:
+            logger.exception("Exception during SAP TRM API call.")
             return None
-    except Exception as e:
-        logger.exception("Exception during SAP TRM API call.")
-        return None
 
-def value_at_risk(self, weights, confidence_level=0.95):
-    """
-    Calculate Value at Risk (VaR). First, attempt to retrieve data from the SAP TRM API.
-    If that fails, use the yfinance-based calculation.
-    """
-    if self.use_sap_api:
-        sap_data = self.fetch_sap_portfolio_risk_metrics(weights)
-        if sap_data and "VaR" in sap_data:
-            return sap_data["VaR"]
-        else:
-            logger.info("Falling back to yfinance for VaR calculation.")
-    # Fallback: Calculate VaR using the downloaded returns data.
-    portfolio_returns = self.returns.dot(weights)
-    return np.percentile(portfolio_returns, (1 - confidence_level) * 100)
+    def value_at_risk(self, weights, confidence_level=0.95):
+        if self.use_sap_api:
+            sap_data = self.fetch_sap_portfolio_risk_metrics(weights)
+            if sap_data and "VaR" in sap_data:
+                return sap_data["VaR"]
+            else:
+                logger.info("Falling back to yfinance for VaR calculation.")
+        portfolio_returns = self.returns.dot(weights)
+        return np.percentile(portfolio_returns, (1 - confidence_level) * 100)
 
-def conditional_value_at_risk(self, weights, confidence_level=0.95):
-    """
-    Calculate Conditional Value at Risk (CVaR). First, try to use the SAP TRM API.
-    If no valid data is available, calculate CVaR using the yfinance data.
-    """
-    if self.use_sap_api:
-        sap_data = self.fetch_sap_portfolio_risk_metrics(weights)
-        if sap_data and "CVaR" in sap_data:
-            return sap_data["CVaR"]
-        else:
-            logger.info("Falling back to yfinance for CVaR calculation.")
-    portfolio_returns = self.returns.dot(weights)
-    var = self.value_at_risk(weights, confidence_level)
-    return portfolio_returns[portfolio_returns <= var].mean()
+    def conditional_value_at_risk(self, weights, confidence_level=0.95):
+        if self.use_sap_api:
+            sap_data = self.fetch_sap_portfolio_risk_metrics(weights)
+            if sap_data and "CVaR" in sap_data:
+                return sap_data["CVaR"]
+            else:
+                logger.info("Falling back to yfinance for CVaR calculation.")
+        portfolio_returns = self.returns.dot(weights)
+        var = self.value_at_risk(weights, confidence_level)
+        return portfolio_returns[portfolio_returns <= var].mean()
 
     def maximum_drawdown(self, weights):
         portfolio_returns = self.returns.dot(weights)
@@ -496,8 +457,8 @@ def conditional_value_at_risk(self, weights, confidence_level=0.95):
             X.append(scaled_data[i - look_back:i])
             y.append(scaled_data[i])
         split = int(len(X) * 0.8)
-        X_train, X_test = np.array(X[:split]), np.array(X[split:])
-        y_train, y_test = np.array(y[:split]), np.array(y[split:])
+        X_train, y_train = np.array(X[:split]), np.array(y[:split])
+        X_test, y_test = np.array(X[split:]), np.array(y[split:])
         if not X_train.size or not y_train.size:
             raise ValueError("Not enough data for training.")
         return X_train, y_train, X_test, y_test, scaler
@@ -697,20 +658,19 @@ def show_introduction(lang):
     intro_heading = get_translated_text(lang, "intro_heading")
     intro_text = get_translated_text(lang, "intro_text")
     st.info(f"### {intro_heading}\n\n{intro_text}")
-    if st.button(get_translated_text(lang, "dismiss")):
+    if st.button(get_translated_text(lang, "dismiss"), key="dismiss_intro_button"):
         st.session_state["show_intro"] = False
 
 ##############################
 # Main Streamlit App
 ##############################
 def main():
-    # Sidebar language selection and translation toggle
+    # Sidebar language selection
     st.sidebar.header("🌐 Language Selection")
-    selected_language = st.sidebar.selectbox("Select Language:", options=list(languages.keys()), index=0)
+    selected_language = st.sidebar.selectbox("Select Language:", options=list(languages.keys()), index=0, key="language_select")
     lang = languages[selected_language]
     
-    # Toggle to show/hide Japanese translation of introduction
-    show_jp = st.sidebar.checkbox(get_translated_text(lang, "show_japanese"), value=False)
+    # (Removed the Japanese translation toggle as per requirements.)
     
     # Show the introduction if not dismissed
     if st.session_state["show_intro"]:
@@ -721,7 +681,7 @@ def main():
     
     # SAP BW/BEx Section in Sidebar (optional)
     st.sidebar.header(get_translated_text(lang, "sap_bw_connections"))
-    if st.sidebar.button(get_translated_text(lang, "fetch_bw_connections")):
+    if st.sidebar.button(get_translated_text(lang, "fetch_bw_connections"), key="fetch_bw_connections_button"):
         bw_connections = fetch_bw_connections()
         if bw_connections:
             st.sidebar.write(bw_connections)
@@ -736,13 +696,13 @@ def main():
         'Healthcare Majors': ['JNJ - Johnson & Johnson', 'PFE - Pfizer', 'UNH - UnitedHealth', 'MRK - Merck', 'ABBV - AbbVie', 'ABT - Abbott', 'TMO - Thermo Fisher Scientific', 'MDT - Medtronic', 'DHR - Danaher', 'BMY - Bristol-Myers Squibb'],
         'Custom': []
     }
-    universe_choice = st.sidebar.selectbox(get_translated_text(lang, "select_universe"), options=list(universe_options.keys()), index=0)
+    universe_choice = st.sidebar.selectbox(get_translated_text(lang, "select_universe"), options=list(universe_options.keys()), index=0, key="universe_choice")
     if universe_choice == 'Custom':
-        custom_tickers = st.sidebar.text_input(get_translated_text(lang, "custom_tickers"), value="")
+        custom_tickers = st.sidebar.text_input(get_translated_text(lang, "custom_tickers"), value="", key="custom_tickers")
     else:
-        selected_universe_assets = st.sidebar.multiselect(get_translated_text(lang, "add_portfolio"), universe_options[universe_choice], default=[])
+        selected_universe_assets = st.sidebar.multiselect(get_translated_text(lang, "add_portfolio"), universe_options[universe_choice], default=[], key="selected_universe_assets")
     
-    # Initialize Session State for Portfolio
+    # Initialize Session State for Portfolio and Metrics
     if 'my_portfolio' not in st.session_state:
         st.session_state['my_portfolio'] = []
     if 'base_portfolio_metrics' not in st.session_state:
@@ -753,45 +713,49 @@ def main():
     # Add assets to portfolio
     if universe_choice != 'Custom':
         if selected_universe_assets:
-            if st.sidebar.button(get_translated_text(lang, "add_portfolio")):
+            if st.sidebar.button(get_translated_text(lang, "add_portfolio"), key="add_portfolio_noncustom"):
                 new_tickers = [extract_ticker(asset) for asset in selected_universe_assets]
                 st.session_state['my_portfolio'] = list(set(st.session_state['my_portfolio'] + new_tickers))
                 st.sidebar.success(get_translated_text(lang, "add_portfolio") + " " + get_translated_text(lang, "my_portfolio"))
     else:
-        if st.sidebar.button(get_translated_text(lang, "add_portfolio")):
+        if st.sidebar.button(get_translated_text(lang, "add_portfolio"), key="add_portfolio_custom"):
             if custom_tickers.strip():
                 new_tickers = [ticker.strip().upper() for ticker in custom_tickers.split(",") if ticker.strip()]
                 st.session_state['my_portfolio'] = list(set(st.session_state['my_portfolio'] + new_tickers))
                 st.sidebar.success(get_translated_text(lang, "add_portfolio") + " " + get_translated_text(lang, "my_portfolio"))
     
-    # Display current portfolio
+    # Display current portfolio and add Restart Selection button
     st.sidebar.subheader(get_translated_text(lang, "my_portfolio"))
     if st.session_state['my_portfolio']:
         st.sidebar.write(", ".join(st.session_state['my_portfolio']))
+        if st.sidebar.button("Restart selection", key="restart_selection_button"):
+            st.session_state['my_portfolio'] = []
     else:
         st.sidebar.write(get_translated_text(lang, "no_assets"))
     
     # Optimization Parameters
     st.sidebar.header(get_translated_text(lang, "optimization_parameters"))
-    start_date = st.sidebar.date_input(get_translated_text(lang, "start_date"), value=datetime(2024, 1, 1), max_value=datetime.today())
+    start_date = st.sidebar.date_input(get_translated_text(lang, "start_date"), value=datetime(2024, 1, 1), max_value=datetime.today(), key="start_date")
     def get_last_day_previous_month():
         today = datetime.today()
         first_day = today.replace(day=1)
         return first_day - pd.Timedelta(days=1)
-    end_date = st.sidebar.date_input(get_translated_text(lang, "end_date"), value=get_last_day_previous_month(), max_value=datetime.today())
-    risk_free_rate = st.sidebar.number_input(get_translated_text(lang, "risk_free_rate"), value=2.0, step=0.1) / 100
-    investment_strategy = st.sidebar.radio(get_translated_text(lang, "investment_strategy"), (get_translated_text(lang, "strategy_risk_free"), get_translated_text(lang, "strategy_profit")))
+    end_date = st.sidebar.date_input(get_translated_text(lang, "end_date"), value=get_last_day_previous_month(), max_value=datetime.today(), key="end_date")
+    risk_free_rate = st.sidebar.number_input(get_translated_text(lang, "risk_free_rate"), value=2.0, step=0.1, key="risk_free_rate") / 100
+    investment_strategy = st.sidebar.radio(get_translated_text(lang, "investment_strategy"), 
+                                             (get_translated_text(lang, "strategy_risk_free"), get_translated_text(lang, "strategy_profit")), 
+                                             key="investment_strategy")
     if investment_strategy == get_translated_text(lang, "strategy_risk_free"):
-        specific_target_return = st.sidebar.slider(get_translated_text(lang, "target_return"), min_value=-5.0, max_value=20.0, value=5.0, step=0.1) / 100
+        specific_target_return = st.sidebar.slider(get_translated_text(lang, "target_return"), min_value=-5.0, max_value=20.0, value=5.0, step=0.1, key="target_return_slider") / 100
     else:
         specific_target_return = None
     
-    # Buttons for actions
-    train_lstm = st.sidebar.button(get_translated_text(lang, "train_lstm"))
-    optimize_portfolio = st.sidebar.button(get_translated_text(lang, "optimize_portfolio"))
-    optimize_sharpe = st.sidebar.button(get_translated_text(lang, "optimize_sharpe"))
-    compare_portfolios_btn = st.sidebar.button(get_translated_text(lang, "compare_portfolios"))
-    save_pdf_report = st.sidebar.button(get_translated_text(lang, "save_pdf"))
+    # Action Buttons (all with unique keys)
+    train_lstm = st.sidebar.button(get_translated_text(lang, "train_lstm"), key="train_lstm_button")
+    optimize_portfolio = st.sidebar.button(get_translated_text(lang, "optimize_portfolio"), key="optimize_portfolio_button")
+    optimize_sharpe = st.sidebar.button(get_translated_text(lang, "optimize_sharpe"), key="optimize_sharpe_button")
+    compare_portfolios_btn = st.sidebar.button(get_translated_text(lang, "compare_portfolios"), key="compare_portfolios_button")
+    save_pdf_report = st.sidebar.button(get_translated_text(lang, "save_pdf"), key="save_pdf_button")
     
     st.header(get_translated_text(lang, "portfolio_analysis"))
     
@@ -823,7 +787,7 @@ def main():
                 plt.xticks(rotation=45)
                 plt.tight_layout()
                 st.pyplot(fig)
-                with st.expander(get_translated_text(lang, "more_info_lstm")):
+                with st.expander(get_translated_text(lang, "more_info_lstm"), key="lstm_expander"):
                     st.markdown(get_translated_text(lang, "explanation_lstm"))
             except Exception as e:
                 st.error(str(e))
@@ -1010,14 +974,13 @@ def main():
     
     # --- PDF Report Generation Section ---
     if save_pdf_report:
-        # For the PDF report, we combine the latest optimization metrics and BW connection details (if available)
         opt_metrics = st.session_state.get('optimized_portfolio_metrics', st.session_state.get('base_portfolio_metrics'))
         bw_report_data = fetch_bw_connections()  # Simulated BW connections data
         if opt_metrics is None:
             st.error("No optimization metrics available to generate the report.")
         else:
             pdf_bytes = generate_pdf_report(opt_metrics, bw_report_data, language=lang)
-            st.download_button("Download PDF Report", data=pdf_bytes, file_name="Portfolio_Report.pdf", mime="application/pdf")
+            st.download_button("Download PDF Report", data=pdf_bytes, file_name="Portfolio_Report.pdf", mime="application/pdf", key="download_pdf_button")
     
     # --- Compare Portfolios Section ---
     if compare_portfolios_btn:
