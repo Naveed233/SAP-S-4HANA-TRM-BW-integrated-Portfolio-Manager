@@ -1,3 +1,4 @@
+import streamlit as st
 import numpy as np
 import pandas as pd
 import scipy.stats as si
@@ -7,12 +8,10 @@ import datetime
 import requests
 
 # =============================================================================
-# 1. ASSET PRICING MODELS
+# 1. ASSET PRICING MODELS & RISK METRICS
 # =============================================================================
 
-# -------------------------
-# A. BONDS: Pricing, Duration, Convexity
-# -------------------------
+# ---------- A. BONDS ----------
 class Bond:
     def __init__(self, face_value, coupon_rate, maturity_date, frequency=1):
         """
@@ -27,32 +26,22 @@ class Bond:
         self.frequency = frequency
 
     def cash_flows(self, issue_date=None):
-        """
-        Returns the scheduled payment dates and the corresponding cash flows.
-        """
         if issue_date is None:
             issue_date = pd.Timestamp.today()
         dates = []
         current_date = self.maturity_date
-        # Generate coupon dates by subtracting coupon intervals until reaching issue_date
         while current_date > issue_date:
             dates.append(current_date)
             months = int(12 / self.frequency)
             current_date -= pd.DateOffset(months=months)
         dates = sorted(dates)
-        # Each payment is coupon_rate * face_value / frequency
         coupon_payment = self.face_value * self.coupon_rate / self.frequency
         payments = [coupon_payment] * len(dates)
-        # At maturity, add the face value to the last coupon payment
         if payments:
             payments[-1] += self.face_value
         return dates, payments
 
     def price(self, yield_rate, issue_date=None):
-        """
-        Price the bond using the present value of its cash flows.
-        yield_rate: Annual yield (decimal)
-        """
         dates, payments = self.cash_flows(issue_date)
         if issue_date is None:
             issue_date = pd.Timestamp.today()
@@ -63,9 +52,6 @@ class Bond:
         return price
 
     def duration(self, yield_rate, issue_date=None):
-        """
-        Calculate the Macaulay duration of the bond.
-        """
         dates, payments = self.cash_flows(issue_date)
         if issue_date is None:
             issue_date = pd.Timestamp.today()
@@ -77,9 +63,6 @@ class Bond:
         return duration / bond_price
 
     def convexity(self, yield_rate, issue_date=None):
-        """
-        Calculate the convexity of the bond.
-        """
         dates, payments = self.cash_flows(issue_date)
         if issue_date is None:
             issue_date = pd.Timestamp.today()
@@ -90,11 +73,8 @@ class Bond:
             convexity += t * (t + 1) * (payment / (1 + yield_rate) ** (t + 2))
         return convexity / bond_price
 
-# -------------------------
-# B. DERIVATIVES
-# -------------------------
-# 1. Options (European and American)
-
+# ---------- B. DERIVATIVES ----------
+# 1. Options (European & American)
 class Option:
     def __init__(self, option_type, S, K, T, r, sigma, dividend_yield=0):
         """
@@ -115,9 +95,6 @@ class Option:
         self.dividend_yield = dividend_yield
 
     def black_scholes_price(self):
-        """
-        Price a European option using the Black-Scholes formula.
-        """
         d1 = (np.log(self.S / self.K) + (self.r - self.dividend_yield + 0.5 * self.sigma ** 2) * self.T) / (self.sigma * np.sqrt(self.T))
         d2 = d1 - self.sigma * np.sqrt(self.T)
         if self.option_type == 'call':
@@ -129,26 +106,18 @@ class Option:
         return price
 
     def binomial_tree_price(self, steps=100):
-        """
-        Price an American option using a binomial tree (can also be used for European options).
-        """
         dt = self.T / steps
         u = np.exp(self.sigma * np.sqrt(dt))
         d = 1 / u
-        # Risk-neutral probability
         p = (np.exp((self.r - self.dividend_yield) * dt) - d) / (u - d)
-        # Initialize asset prices at maturity
         asset_prices = np.array([self.S * (u ** (steps - i)) * (d ** i) for i in range(steps + 1)])
-        # Option values at maturity
         if self.option_type == 'call':
             option_values = np.maximum(asset_prices - self.K, 0)
         else:
             option_values = np.maximum(self.K - asset_prices, 0)
-        # Step back through the tree
         for j in range(steps - 1, -1, -1):
             for i in range(j + 1):
                 option_values[i] = np.exp(-self.r * dt) * (p * option_values[i] + (1 - p) * option_values[i + 1])
-                # For American options, check early exercise:
                 asset_price = self.S * (u ** (j - i)) * (d ** i)
                 if self.option_type == 'call':
                     option_values[i] = max(option_values[i], asset_price - self.K)
@@ -157,10 +126,6 @@ class Option:
         return option_values[0]
 
     def greeks(self):
-        """
-        Compute and return key option Greeks for European options.
-        (This is a simplified version computing only Delta.)
-        """
         d1 = (np.log(self.S / self.K) + (self.r - self.dividend_yield + 0.5 * self.sigma ** 2) * self.T) / (self.sigma * np.sqrt(self.T))
         delta = si.norm.cdf(d1) if self.option_type == 'call' else -si.norm.cdf(-d1)
         return {"delta": delta}
@@ -168,32 +133,16 @@ class Option:
 # 2. Futures
 class Future:
     def __init__(self, underlying_price, cost_of_carry, T):
-        """
-        underlying_price: Current price of the underlying asset.
-        cost_of_carry: Cost of carry (r - dividend yield for equities).
-        T: Time to expiration in years.
-        """
         self.underlying_price = underlying_price
         self.cost_of_carry = cost_of_carry
         self.T = T
 
     def price(self):
-        """
-        Price the future using the cost-of-carry model.
-        F = S * exp(cost_of_carry * T)
-        """
         return self.underlying_price * np.exp(self.cost_of_carry * self.T)
 
 # 3. Interest Rate Swaps
 class InterestRateSwap:
     def __init__(self, notional, fixed_rate, floating_rates, payment_dates, discount_factors):
-        """
-        notional: Swap notional amount.
-        fixed_rate: Fixed rate of the swap.
-        floating_rates: List/array of expected floating rates for each payment period.
-        payment_dates: List of payment dates (datetime objects).
-        discount_factors: List/array of discount factors corresponding to each payment date.
-        """
         self.notional = notional
         self.fixed_rate = fixed_rate
         self.floating_rates = np.array(floating_rates)
@@ -201,10 +150,6 @@ class InterestRateSwap:
         self.discount_factors = np.array(discount_factors)
 
     def price(self, issue_date=None):
-        """
-        Price the interest rate swap as the difference between the floating and fixed legs.
-        (Simplified DCF approach.)
-        """
         if issue_date is None:
             issue_date = pd.Timestamp.today()
         fixed_leg = sum(self.fixed_rate * self.notional * df for df in self.discount_factors)
@@ -212,23 +157,10 @@ class InterestRateSwap:
         return floating_leg - fixed_leg
 
 # =============================================================================
-# 2. PORTFOLIO OPTIMIZATION & RISK ANALYSIS
+# 2. PORTFOLIO OPTIMIZATION & RISK ANALYSIS FUNCTIONS
 # =============================================================================
 
 def black_litterman(prior_returns, covariance, P, Q, tau=0.05, omega=None):
-    """
-    Adjust expected returns using a Black-Litterman approach.
-    
-    prior_returns: Equilibrium market returns vector.
-    covariance: Covariance matrix of asset returns.
-    P: Pick matrix (views) of shape (n_views, n_assets).
-    Q: Vector of views.
-    tau: Scalar that scales the covariance matrix.
-    omega: Uncertainty (diagonal) matrix of the views. If None, computed as diag(P * tau * covariance * P.T).
-    
-    Returns:
-        Adjusted expected returns vector.
-    """
     prior_returns = np.array(prior_returns)
     covariance = np.array(covariance)
     P = np.array(P)
@@ -239,29 +171,13 @@ def black_litterman(prior_returns, covariance, P, Q, tau=0.05, omega=None):
     adjusted_returns = inv_term @ (np.linalg.inv(tau * covariance) @ prior_returns + P.T @ np.linalg.inv(omega) @ Q)
     return adjusted_returns
 
-# -------------------------
-# Portfolio Optimizer using Markowitz Mean-Variance Framework
-# -------------------------
 class PortfolioOptimizer:
     def __init__(self, assets, expected_returns, covariance):
-        """
-        assets: List of asset names (e.g., ['Stock', 'Crypto', 'Bond', 'Derivative'])
-        expected_returns: Expected annualized return vector.
-        covariance: Covariance matrix (annualized) of asset returns.
-        """
         self.assets = assets
         self.expected_returns = np.array(expected_returns)
         self.covariance = np.array(covariance)
 
     def optimize(self, target_return=None):
-        """
-        Solve the mean-variance optimization problem.
-        Minimize portfolio variance subject to:
-            - Full investment (weights sum to 1)
-            - No short positions (weights >= 0)
-            - Optional target return constraint.
-        Returns: Optimal weights, portfolio expected return, and variance.
-        """
         n = len(self.assets)
         w = cp.Variable(n)
         port_return = self.expected_returns @ w
@@ -274,31 +190,12 @@ class PortfolioOptimizer:
         prob.solve()
         return w.value, port_return.value, port_variance.value
 
-# -------------------------
-# Monte Carlo Simulation for Portfolio Paths
-# -------------------------
 def monte_carlo_simulation_portfolio(weights, daily_returns, daily_vol, num_simulations=1000, num_periods=252):
-    """
-    Simulate portfolio value paths.
-    
-    weights: Portfolio weights vector.
-    daily_returns: Numpy array of expected daily returns for each asset.
-    daily_vol: Assumed constant daily volatility for assets (or vector for each asset).
-    num_simulations: Number of simulation runs.
-    num_periods: Number of trading days.
-    
-    Returns:
-        A simulation matrix of shape (num_simulations, num_periods) representing portfolio value paths.
-    """
     weights = np.array(weights)
-    n_assets = len(weights)
     portfolio_paths = []
     for i in range(num_simulations):
-        # Simulate daily returns for each asset over num_periods:
-        asset_paths = np.random.normal(loc=daily_returns, scale=daily_vol, size=(num_periods, n_assets))
-        # Compute daily portfolio return:
+        asset_paths = np.random.normal(loc=daily_returns, scale=daily_vol, size=(num_periods, len(weights)))
         port_daily_returns = asset_paths @ weights
-        # Calculate cumulative portfolio value (starting from 1)
         port_value = np.cumprod(1 + port_daily_returns)
         portfolio_paths.append(port_value)
     return np.array(portfolio_paths)
@@ -308,63 +205,48 @@ def monte_carlo_simulation_portfolio(weights, daily_returns, daily_vol, num_simu
 # =============================================================================
 
 def plot_bond_price_vs_yield(bond, yield_min, yield_max, num_points=100):
-    """
-    Plot bond price as a function of yield.
-    """
     yields = np.linspace(yield_min, yield_max, num_points)
     prices = [bond.price(y) for y in yields]
-    plt.figure(figsize=(10,6))
-    plt.plot(yields, prices, label='Bond Price', color='blue')
-    plt.xlabel("Yield")
-    plt.ylabel("Bond Price")
-    plt.title("Bond Price vs. Yield")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    fig, ax = plt.subplots(figsize=(10,6))
+    ax.plot(yields, prices, label='Bond Price', color='blue')
+    ax.set_xlabel("Yield")
+    ax.set_ylabel("Bond Price")
+    ax.set_title("Bond Price vs. Yield")
+    ax.legend()
+    ax.grid(True)
+    return fig
 
 def plot_bond_duration_convexity_vs_yield(bond, yield_min, yield_max, num_points=100):
-    """
-    Plot bond duration and convexity as a function of yield.
-    """
     yields = np.linspace(yield_min, yield_max, num_points)
     durations = [bond.duration(y) for y in yields]
     convexities = [bond.convexity(y) for y in yields]
-    plt.figure(figsize=(10,6))
-    plt.plot(yields, durations, label='Duration', color='blue')
-    plt.plot(yields, convexities, label='Convexity', color='red')
-    plt.xlabel("Yield")
-    plt.ylabel("Metric Value")
-    plt.title("Bond Duration & Convexity vs. Yield")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    fig, ax = plt.subplots(figsize=(10,6))
+    ax.plot(yields, durations, label='Duration', color='blue')
+    ax.plot(yields, convexities, label='Convexity', color='red')
+    ax.set_xlabel("Yield")
+    ax.set_ylabel("Metric Value")
+    ax.set_title("Bond Duration & Convexity vs. Yield")
+    ax.legend()
+    ax.grid(True)
+    return fig
 
 def plot_option_price_vs_underlying(option, underlying_range):
-    """
-    Plot option price (European, Black-Scholes) as a function of the underlying asset price.
-    """
     prices = []
     for S in underlying_range:
         option.S = S  # update underlying price
         prices.append(option.black_scholes_price())
-    plt.figure(figsize=(10,6))
-    plt.plot(underlying_range, prices, label=f"{option.option_type.capitalize()} Option Price", color='green')
-    plt.xlabel("Underlying Price")
-    plt.ylabel("Option Price")
-    plt.title("Option Price vs. Underlying Asset Price")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    fig, ax = plt.subplots(figsize=(10,6))
+    ax.plot(underlying_range, prices, label=f"{option.option_type.capitalize()} Option Price", color='green')
+    ax.set_xlabel("Underlying Price")
+    ax.set_ylabel("Option Price")
+    ax.set_title("Option Price vs. Underlying Asset Price")
+    ax.legend()
+    ax.grid(True)
+    return fig
 
 def generate_random_portfolios(expected_returns, covariance, num_portfolios=5000):
-    """
-    Generate random portfolios to help plot an efficient frontier.
-    Returns:
-        results: Array with columns [volatility, return, sharpe_ratio]
-        weights_record: List of portfolio weights.
-    """
     n = len(expected_returns)
-    results = np.zeros((num_portfolios, 3))  # vol, return, sharpe ratio
+    results = np.zeros((num_portfolios, 3))
     weights_record = []
     for i in range(num_portfolios):
         weights = np.random.random(n)
@@ -379,149 +261,179 @@ def generate_random_portfolios(expected_returns, covariance, num_portfolios=5000
     return results, weights_record
 
 def plot_efficient_frontier(expected_returns, covariance, optimal_weight=None, optimal_return=None, optimal_volatility=None, num_portfolios=5000):
-    """
-    Plot the efficient frontier using randomly generated portfolios.
-    """
     results, _ = generate_random_portfolios(expected_returns, covariance, num_portfolios)
     volatilities = results[:, 0]
     returns = results[:, 1]
     sharpe_ratios = results[:, 2]
-    
-    plt.figure(figsize=(10,6))
-    sc = plt.scatter(volatilities, returns, c=sharpe_ratios, cmap='viridis', marker='o', alpha=0.5)
-    plt.xlabel("Volatility (Std. Deviation)")
-    plt.ylabel("Expected Return")
-    plt.title("Efficient Frontier")
-    plt.colorbar(sc, label="Sharpe Ratio")
+    fig, ax = plt.subplots(figsize=(10,6))
+    sc = ax.scatter(volatilities, returns, c=sharpe_ratios, cmap='viridis', marker='o', alpha=0.5)
+    ax.set_xlabel("Volatility (Std. Deviation)")
+    ax.set_ylabel("Expected Return")
+    ax.set_title("Efficient Frontier")
+    fig.colorbar(sc, label="Sharpe Ratio")
     if optimal_weight is not None:
-        plt.scatter(optimal_volatility, optimal_return, color='red', marker='*', s=200, label='Optimal Portfolio')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+        ax.scatter(optimal_volatility, optimal_return, color='red', marker='*', s=200, label='Optimal Portfolio')
+        ax.legend()
+    ax.grid(True)
+    return fig
 
 def plot_asset_allocation(assets, weights):
-    """
-    Plot a pie chart of asset allocation.
-    """
-    plt.figure(figsize=(8,8))
-    plt.pie(weights, labels=assets, autopct='%1.1f%%', startangle=140)
-    plt.title("Portfolio Asset Allocation")
-    plt.show()
+    fig, ax = plt.subplots(figsize=(8,8))
+    ax.pie(weights, labels=assets, autopct='%1.1f%%', startangle=140)
+    ax.set_title("Portfolio Asset Allocation")
+    return fig
 
 def plot_portfolio_simulations(portfolio_paths, num_paths_to_plot=50):
-    """
-    Plot several Monte Carlo simulated portfolio paths.
-    """
-    plt.figure(figsize=(10,6))
+    fig, ax = plt.subplots(figsize=(10,6))
     for path in portfolio_paths[:num_paths_to_plot]:
-        plt.plot(path, lw=0.7, alpha=0.6)
-    plt.title("Monte Carlo Simulation of Portfolio Value Over Time")
-    plt.xlabel("Days")
-    plt.ylabel("Portfolio Value")
-    plt.grid(True)
-    plt.show()
+        ax.plot(path, lw=0.7, alpha=0.6)
+    ax.set_title("Monte Carlo Simulation of Portfolio Value Over Time")
+    ax.set_xlabel("Days")
+    ax.set_ylabel("Portfolio Value")
+    ax.grid(True)
+    return fig
 
 def plot_final_value_distribution(portfolio_paths):
-    """
-    Plot the distribution of final portfolio values from the Monte Carlo simulation.
-    """
     final_values = portfolio_paths[:, -1]
-    plt.figure(figsize=(10,6))
-    plt.hist(final_values, bins=50, edgecolor='k', alpha=0.7)
-    plt.title("Distribution of Final Portfolio Values")
-    plt.xlabel("Final Portfolio Value")
-    plt.ylabel("Frequency")
-    plt.grid(True)
-    plt.show()
+    fig, ax = plt.subplots(figsize=(10,6))
+    ax.hist(final_values, bins=50, edgecolor='k', alpha=0.7)
+    ax.set_title("Distribution of Final Portfolio Values")
+    ax.set_xlabel("Final Portfolio Value")
+    ax.set_ylabel("Frequency")
+    ax.grid(True)
+    return fig
 
 # =============================================================================
-# 4. EXAMPLE USAGE (Replace dummy data/API calls with live data as needed)
+# 4. STREAMLIT APP
 # =============================================================================
-if __name__ == "__main__":
-    # ---- A. Bond Example & Visualization ----
-    bond = Bond(face_value=1000, coupon_rate=0.05, maturity_date="2030-12-31", frequency=2)
-    bond_yield = 0.04  # Example yield of 4%
-    bond_price = bond.price(bond_yield)
-    bond_duration = bond.duration(bond_yield)
-    bond_convexity = bond.convexity(bond_yield)
-    print("Bond Price: {:.2f}, Duration: {:.2f}, Convexity: {:.2f}".format(bond_price, bond_duration, bond_convexity))
-    
-    # Visualize bond metrics vs. yield
-    plot_bond_price_vs_yield(bond, 0.01, 0.1)
-    plot_bond_duration_convexity_vs_yield(bond, 0.01, 0.1)
 
-    # ---- B. Option Example & Visualization ----
-    option = Option(option_type='call', S=100, K=95, T=1, r=0.03, sigma=0.2, dividend_yield=0.01)
-    euro_call_price = option.black_scholes_price()
-    american_call_price = option.binomial_tree_price(steps=100)
-    greeks = option.greeks()
-    print("European Call Price (Black-Scholes): {:.2f}".format(euro_call_price))
-    print("American Call Price (Binomial Tree): {:.2f}".format(american_call_price))
-    print("Option Greeks:", greeks)
-    
-    # Visualize option price sensitivity vs. underlying price
-    underlying_range = np.linspace(80, 120, 100)
-    plot_option_price_vs_underlying(option, underlying_range)
+st.set_page_config(page_title="Portfolio Optimization & Asset Analysis", layout="wide")
+st.title("Portfolio Optimization & Asset Analysis App")
 
-    # ---- C. Future Example ----
-    future = Future(underlying_price=100, cost_of_carry=0.03, T=1)
-    future_price = future.price()
-    print("Future Price: {:.2f}".format(future_price))
+# Sidebar navigation
+page = st.sidebar.radio("Navigation", 
+                          ["Bond Analysis", "Option Analysis", "Portfolio Optimization"])
 
-    # ---- D. Swap Example ----
-    # Dummy payment dates and discount factors for a three-period swap.
-    payment_dates = [pd.Timestamp("2024-12-31"), pd.Timestamp("2025-12-31"), pd.Timestamp("2026-12-31")]
-    discount_factors = [0.98, 0.95, 0.92]
-    swap = InterestRateSwap(notional=1000000, fixed_rate=0.04,
-                              floating_rates=[0.035, 0.04, 0.045],
-                              payment_dates=payment_dates,
-                              discount_factors=discount_factors)
-    swap_value = swap.price()
-    print("Swap Value: {:.2f}".format(swap_value))
+# -------------------------
+# PAGE 1: Bond Analysis
+# -------------------------
+if page == "Bond Analysis":
+    st.header("Bond Analysis")
+    st.markdown("Adjust the bond parameters and yield range below to see how price, duration, and convexity change.")
 
-    # ---- E. Portfolio Optimization Example ----
-    # Assume a portfolio with 4 asset classes: Stock, Crypto, Bond, Derivative (e.g., option exposure)
+    # Bond parameters input
+    face_value = st.sidebar.number_input("Face Value", value=1000)
+    coupon_rate = st.sidebar.slider("Coupon Rate", min_value=0.0, max_value=0.15, value=0.05, step=0.005)
+    maturity_date = st.sidebar.text_input("Maturity Date (YYYY-MM-DD)", value="2030-12-31")
+    frequency = st.sidebar.selectbox("Coupon Frequency (per year)", options=[1, 2, 4], index=1)
+
+    # Yield range
+    yield_min = st.sidebar.slider("Minimum Yield", min_value=0.0, max_value=0.1, value=0.01, step=0.005)
+    yield_max = st.sidebar.slider("Maximum Yield", min_value=0.05, max_value=0.2, value=0.1, step=0.005)
+
+    # Create bond instance
+    bond = Bond(face_value, coupon_rate, maturity_date, frequency)
+    # Show sample bond metrics for a given yield (e.g., yield = 4%)
+    sample_yield = 0.04
+    st.write(f"At a yield of {sample_yield*100:.1f}%, the bond price is **{bond.price(sample_yield):.2f}**, "
+             f"duration is **{bond.duration(sample_yield):.2f}**, and convexity is **{bond.convexity(sample_yield):.2f}**.")
+
+    # Plot bond price vs yield
+    fig1 = plot_bond_price_vs_yield(bond, yield_min, yield_max)
+    st.pyplot(fig1)
+
+    # Plot bond duration & convexity vs yield
+    fig2 = plot_bond_duration_convexity_vs_yield(bond, yield_min, yield_max)
+    st.pyplot(fig2)
+
+# -------------------------
+# PAGE 2: Option Analysis
+# -------------------------
+elif page == "Option Analysis":
+    st.header("Option Analysis")
+    st.markdown("Adjust the option parameters and see the price sensitivity to the underlying asset price.")
+
+    # Option parameters input
+    option_type = st.sidebar.selectbox("Option Type", ["call", "put"])
+    S = st.sidebar.number_input("Underlying Price (S)", value=100)
+    K = st.sidebar.number_input("Strike Price (K)", value=95)
+    T = st.sidebar.number_input("Time to Expiration (T in years)", value=1.0, step=0.1)
+    r = st.sidebar.number_input("Risk-free Rate (r)", value=0.03, step=0.005)
+    sigma = st.sidebar.number_input("Volatility (sigma)", value=0.2, step=0.01)
+    dividend_yield = st.sidebar.number_input("Dividend Yield", value=0.01, step=0.005)
+
+    option = Option(option_type, S, K, T, r, sigma, dividend_yield)
+    euro_price = option.black_scholes_price()
+    am_price = option.binomial_tree_price(steps=100)
+    st.write(f"European {option_type.capitalize()} Price (Black-Scholes): **{euro_price:.2f}**")
+    st.write(f"American {option_type.capitalize()} Price (Binomial Tree): **{am_price:.2f}**")
+    st.write("Option Greeks:", option.greeks())
+
+    # Underlying price range for plotting
+    underlying_range = np.linspace(S * 0.8, S * 1.2, 100)
+    fig3 = plot_option_price_vs_underlying(option, underlying_range)
+    st.pyplot(fig3)
+
+# -------------------------
+# PAGE 3: Portfolio Optimization
+# -------------------------
+elif page == "Portfolio Optimization":
+    st.header("Portfolio Optimization & Risk Analysis")
+    st.markdown("This section demonstrates mean-variance optimization, efficient frontier, asset allocation, and Monte Carlo simulation for risk analysis.")
+
+    # For demonstration, we use four asset classes.
     assets = ['Stock', 'Crypto', 'Bond', 'Derivative']
-    # Annualized expected returns for the assets (from CAPM, historical data, or Black-Litterman views)
-    expected_returns = [0.08, 0.12, 0.05, 0.10]
-    # Dummy covariance matrix (annualized)
+    # Input expected returns (annualized)
+    st.sidebar.markdown("### Expected Returns (annualized)")
+    er_stock = st.sidebar.number_input("Stock", value=0.08, step=0.01)
+    er_crypto = st.sidebar.number_input("Crypto", value=0.12, step=0.01)
+    er_bond = st.sidebar.number_input("Bond", value=0.05, step=0.01)
+    er_deriv = st.sidebar.number_input("Derivative", value=0.10, step=0.01)
+    expected_returns = [er_stock, er_crypto, er_bond, er_deriv]
+
+    # For simplicity, use a dummy covariance matrix (annualized)
     covariance = [[0.1,   0.02,  0.01, 0.03],
                   [0.02,  0.2,   0.015,0.025],
                   [0.01,  0.015, 0.05, 0.02],
                   [0.03,  0.025, 0.02, 0.15]]
-    
-    # Optionally adjust expected returns using Black-Litterman views:
-    P = [[0, 0, 1, 0]]  # A view on bonds
-    Q = [0.055]
-    adjusted_returns = black_litterman(expected_returns, covariance, P, Q, tau=0.05)
-    print("Adjusted Expected Returns (Black-Litterman):", adjusted_returns)
 
+    # Optional Black-Litterman view on bonds
+    st.sidebar.markdown("### Black-Litterman View")
+    view_bond = st.sidebar.checkbox("Apply view on Bond returns", value=False)
+    if view_bond:
+        P = [[0, 0, 1, 0]]
+        Q = [st.sidebar.number_input("Bond view (expected return)", value=0.055, step=0.005)]
+        adjusted_returns = black_litterman(expected_returns, covariance, P, Q, tau=0.05)
+    else:
+        adjusted_returns = expected_returns
+
+    st.write("Adjusted Expected Returns:", np.round(adjusted_returns, 4))
+
+    # Optimize portfolio with target return (e.g., 7% annualized)
+    target_return = st.sidebar.number_input("Target Return (annualized)", value=0.07, step=0.005)
     optimizer = PortfolioOptimizer(assets, adjusted_returns, covariance)
-    # For example, target a portfolio return of 7% per annum.
-    weights, port_return, port_variance = optimizer.optimize(target_return=0.07)
+    weights, port_return, port_variance = optimizer.optimize(target_return=target_return)
     port_volatility = np.sqrt(port_variance)
-    print("Optimized Portfolio Weights:", weights)
-    print("Portfolio Expected Return: {:.2f}".format(port_return))
-    print("Portfolio Variance: {:.4f}".format(port_variance))
-    print("Portfolio Volatility: {:.2f}".format(port_volatility))
-    
-    # Visualize efficient frontier (marking the optimized portfolio)
-    plot_efficient_frontier(adjusted_returns, covariance,
-                            optimal_weight=weights,
-                            optimal_return=port_return,
-                            optimal_volatility=port_volatility,
-                            num_portfolios=5000)
-    
-    # Visualize asset allocation
-    plot_asset_allocation(assets, weights)
-    
-    # ---- F. Monte Carlo Simulation for Risk Analysis ----
-    # Convert annual expected returns to daily returns (assume 252 trading days)
+    st.write("Optimized Portfolio Weights:", np.round(weights, 4))
+    st.write(f"Portfolio Expected Return: **{port_return:.2f}**")
+    st.write(f"Portfolio Volatility: **{port_volatility:.2f}**")
+
+    # Plot efficient frontier with the optimal portfolio marked
+    fig4 = plot_efficient_frontier(adjusted_returns, covariance, optimal_weight=weights,
+                                   optimal_return=port_return, optimal_volatility=port_volatility)
+    st.pyplot(fig4)
+
+    # Plot asset allocation pie chart
+    fig5 = plot_asset_allocation(assets, weights)
+    st.pyplot(fig5)
+
+    # Monte Carlo Simulation of the portfolio
+    st.markdown("### Monte Carlo Simulation")
     daily_expected_returns = np.array(expected_returns) / 252
-    daily_vol = 0.01  # Assume 1% daily volatility for simplicity
+    daily_vol = st.sidebar.number_input("Assumed Daily Volatility", value=0.01, step=0.001)
     portfolio_paths = monte_carlo_simulation_portfolio(weights, daily_expected_returns, daily_vol,
-                                                       num_simulations=1000, num_periods=252)
-    
-    # Plot several Monte Carlo simulated portfolio paths and the distribution of final values
-    plot_portfolio_simulations(portfolio_paths, num_paths_to_plot=50)
-    plot_final_value_distribution(portfolio_paths)
+                                                       num_simulations=500, num_periods=252)
+    fig6 = plot_portfolio_simulations(portfolio_paths, num_paths_to_plot=30)
+    st.pyplot(fig6)
+    fig7 = plot_final_value_distribution(portfolio_paths)
+    st.pyplot(fig7)
